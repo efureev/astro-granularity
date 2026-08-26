@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.1.0] 2026-08-26
+
 ### Added
 
 - Astro integration entry point: injects the flash-free theme script, registers the
