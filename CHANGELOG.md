@@ -44,6 +44,11 @@ to [Semantic Versioning](https://semver.org/).
   unresolved, a forgotten `appEntrypoint` surfaces as a raw Vite "Failed to resolve import"
   naming a module the application author never wrote.
 - `<ThemeToggle>` Astro component. No Vue: one delegated handler for every button on the page.
+- CI (`.github/workflows/ci.yml`): typecheck, unit tests on Node 22 and 24, the browser
+  gates, `publint`, and publication on a `v*` tag with provenance plus a GitHub Packages
+  mirror. Publication depends on the browser gates as well — a build that drops the first
+  paint or the server markup of an island must not ship, and neither defect is visible to
+  anything but a browser.
 - Overlay gate (`e2e/overlays.spec.ts`): an island with `GrTooltip`, `GrSelect` in panel mode
   and `GrDialog` on `client:load`, asserting that the markup arrives from the server and that
   the panels open after hydration. Verified by a reverse run — with `client:only="vue"` the

@@ -1,0 +1,213 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  # Ручной перезапуск: push тега тем же значением события не создаёт, а сами
+  # события пуша GitHub иногда теряет — упавший релиз иначе перезапускается
+  # только пересозданием тега.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# `yarn.lock` в `.gitignore`: пакет публикуемый, у потребителя своя раскладка, а
+# диапазоны держатся `peerDependencies`. Поэтому нигде нет ни `--frozen-lockfile`,
+# ни `cache: yarn` — обоим нужен закоммиченный lockfile, и оба упали бы на
+# чистом чекауте.
+
+jobs:
+  # Проверка типов. Шире сборки: `tsconfig.json` включает `src/**/__tests__`,
+  # `client.d.ts` и `vite.config.ts`, а `tsconfig.build.json` их исключает.
+  #
+  # Линта здесь нет намеренно: конфига ESLint в репозитории не заведено.
+  # `eslint-disable`-комментарий в `src/index.ts` достался от раскладки кольца.
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Typecheck
+        run: yarn typecheck
+
+  # Юнит-тесты на обоих поддерживаемых мажорах Node: `engines` требует `>=22`,
+  # и заявленный минимум обязан проверяться, а не подразумеваться.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [ 22, 24 ]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Test package
+        run: yarn test:run
+
+  # Гейты, которые видит только браузер: первый кадр (мигание темы), серверная
+  # разметка оверлеев и язык строк. Юнит-тесты этого не ловят — там значения,
+  # а здесь момент и настоящая отрисовка.
+  e2e:
+    needs: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: yarn install
+
+      # Симлинк `example/node_modules/@feugene/astro-granularity` → корень
+      # репозитория. Без него пример не резолвит пакет вовсе. Единственная
+      # зависимость примера — `link:..`, поэтому чужих пакетов эта установка
+      # не приносит и раскладку корня не трогает.
+      - name: Link the example to the package
+        run: yarn install
+        working-directory: example
+
+      # `channel: 'chromium'` в `playwright.config.ts` — полный сборочный
+      # браузер: headless-shell не отдаёт кадры `Page.startScreencast`, и гейт
+      # первого кадра на нём «проходит» на нуле кадров.
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      # Порядок несущий: `example/` резолвит пакет из `dist/` через симлинк, и
+      # без свежей сборки e2e зелено проверит прошлый код.
+      - name: Build package
+        run: yarn build
+
+      - name: Run browser gates
+        run: yarn test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Сборка и проверка метаданных. Артефакт переиспользуется публикацией, чтобы
+  # публиковалось ровно то, что проверено, а не пересобранное заново.
+  build:
+    needs:
+      - typecheck
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Build package
+        run: yarn build
+
+      # Ловит разъехавшиеся `exports` и типы — то, чего не видит ни один тест:
+      # пакет собирается, ставится и не импортируется.
+      - name: Validate package metadata (publint)
+        run: npx --yes publint@latest --pack npm
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v7
+        with:
+          name: astro-granularity-dist
+          path: dist/
+
+  # Публикация по тегу `v<semver>`. Зависит и от `e2e`: пакет, роняющий первый
+  # кадр или серверную разметку островов, публиковать нельзя, даже если юнит-тесты
+  # зелёные — именно эти дефекты и не видны ничему, кроме браузера.
+  publish-npm:
+    needs:
+      - build
+      - e2e
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "package.json version: $PKG_VERSION"
+          echo "git tag version:      $TAG_VERSION"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Download dist
+        uses: actions/download-artifact@v8
+        with:
+          name: astro-granularity-dist
+          path: dist
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Зеркало в GitHub Packages под scope владельца (`@efureev/astro-granularity`).
+  # `continue-on-error`: у GPR свой реестр и свой токен, и красное зеркало не
+  # повод считать релиз в npm несостоявшимся.
+  publish-gpr:
+    needs: publish-npm
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@efureev'
+
+      - name: Download dist
+        uses: actions/download-artifact@v8
+        with:
+          name: astro-granularity-dist
+          path: dist
+
+      - name: Prepare package for GitHub Packages
+        run: |
+          npm pkg set name='@efureev/astro-granularity'
+          npm pkg delete publishConfig.provenance
+          npm pkg set publishConfig.registry='https://npm.pkg.github.com'
+          node -e "const p=require('./package.json');console.log('publishing as:',p.name,'@',p.version)"
+
+      - name: Publish to GitHub Packages
+        run: npm publish --ignore-scripts --no-provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
