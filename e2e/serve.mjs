@@ -30,6 +30,11 @@ const TYPES = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  // Карта сайта и robots: без них проверка SEO руками показывала бы
+  // `application/octet-stream` там, где на настоящем хостинге всё верно.
+  '.xml': 'application/xml; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 }
 
 /**
@@ -58,11 +63,31 @@ function resolveFile(urlPath) {
   }
 }
 
+/** Собранная страница 404, если она есть: Astro пишет её как `404.html`. */
+function notFoundPage() {
+  const candidate = join(root, '404.html')
+  try {
+    statSync(candidate)
+    return candidate
+  }
+  catch {
+    return null
+  }
+}
+
 createServer((request, response) => {
   const file = resolveFile(request.url ?? '/')
   if (!file) {
-    response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
-    response.end('not found')
+    // Отдаём настоящую страницу, а не строку: иначе проверить 404 руками
+    // нельзя, хотя в сборке она есть, и дефект в ней остался бы невидимым.
+    const page = notFoundPage()
+    if (!page) {
+      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+      response.end('not found')
+      return
+    }
+    response.writeHead(404, { 'content-type': TYPES['.html'], 'cache-control': 'no-store' })
+    createReadStream(page).pipe(response)
     return
   }
 

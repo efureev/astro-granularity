@@ -1,0 +1,33 @@
+---
+import { environments } from '../data/services'
+import { strings, type Locale } from '../i18n/ui'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import PreferencesForm from './PreferencesForm.vue'
+import SavedPreferences from './SavedPreferences.vue'
+
+interface Props {
+  locale: Locale
+}
+
+const { locale } = Astro.props
+const t = strings(locale)
+---
+
+<BaseLayout
+  locale={locale}
+  page="settings"
+  title={`${t.settingsTitle} — ${t.siteName}`}
+  description={t.settingsDescription}
+>
+  <header class="mb-8 grid gap-2">
+    <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--gr-fg)] lg:text-4xl">
+      {t.settingsTitle}
+    </h1>
+    <p class="m-0 max-w-2xl text-[var(--gr-muted-fg)]">{t.settingsDescription}</p>
+  </header>
+
+  <div class="grid items-start gap-6 lg:grid-cols-[1fr_18rem]">
+    <PreferencesForm client:load t={t} environments={[...environments]} />
+    <SavedPreferences client:only="vue" t={t} />
+  </div>
+</BaseLayout>

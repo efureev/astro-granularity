@@ -1,0 +1,21 @@
+---
+import { GrButton } from '@feugene/granularity/components/GrButton'
+import { localePath } from '../i18n/routing'
+import { defaultLocale, strings } from '../i18n/ui'
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+/**
+ * Язык здесь основной и другим быть не может: страница отдаётся на любой
+ * несуществующий путь, и языка у такого пути нет.
+ */
+const t = strings(defaultLocale)
+---
+
+<BaseLayout offRoute locale={defaultLocale} page="index" title={`${t.notFoundTitle} — ${t.siteName}`} description={t.notFoundBody}>
+  <div class="grid justify-items-start gap-4 py-12">
+    <p class="m-0 font-mono text-sm text-[var(--gr-muted-fg)]">404</p>
+    <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--gr-fg)]">{t.notFoundTitle}</h1>
+    <p class="m-0 text-[var(--gr-muted-fg)]">{t.notFoundBody}</p>
+    <GrButton as="a" href={localePath(defaultLocale, 'index')}>{t.notFoundAction}</GrButton>
+  </div>
+</BaseLayout>

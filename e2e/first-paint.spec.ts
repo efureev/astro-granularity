@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import sharp from 'sharp'
 
-/** Порог «тёмного»: сумма RGB. Наш тёмный фон — #101014, светлый — #ffffff. */
+/** Порог «тёмного»: сумма RGB. Канва примера — #0f172a (80) и #f8fafc (750). */
 const DARK_MAX = 200
 const LIGHT_MIN = 600
 
@@ -134,36 +134,136 @@ test.describe('переключатель', () => {
   })
 })
 
+test.describe('переключатель языка', () => {
+  test('ведёт на ту же страницу в выбранном языке', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    // Гейт заведён по факту дефекта: `@change` у `GrSelect` в режиме `native`
+    // не эмитится вовсе, и переключатель молча ничего не делал. Проверяется
+    // именно переход, а не значение селекта — значение менялось и на сломанном.
+    await page.goto('/settings/')
+    await page.getByTestId('locale-switcher').locator('select').selectOption('ru')
+
+    // Страница сохраняется: выбор языка не должен возвращать на главную.
+    await page.waitForURL(url => url.pathname === '/ru/settings/')
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
+  })
+
+  test('перечисляет все три языка и помечает текущий', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/es/')
+    const select = page.getByTestId('locale-switcher').locator('select')
+
+    await expect(select).toHaveValue('es')
+    expect(await select.locator('option').allTextContents()).toEqual(['English', 'Русский', 'Español'])
+  })
+})
+
 test.describe('остров', () => {
   test('`GrButton` гидратируется и приезжает в цвете', async ({ page }) => {
-    await page.goto('/')
-    const button = page.locator('[data-testid="island"] button')
+    await page.goto('/settings/')
+    const button = page.getByTestId('pref-save')
     await expect(button).toBeVisible()
 
     // Цвет — главное. Бесцветная кнопка означает, что UnoCSS не просканировал
     // `dist` библиотеки, и это самый частый способ собрать портал молча сломанным.
+    // Проверяется основная кнопка: у `outline` фона нет по определению.
     const background = await button.evaluate(el => getComputedStyle(el).backgroundColor)
     expect(background).not.toBe('rgba(0, 0, 0, 0)')
     expect(background).not.toBe('transparent')
 
+    // Гидратация: до неё нажатие ничего не меняет.
     await button.click()
-    await expect(button).toContainText('Clicked 1')
+    await expect(page.getByRole('status')).toBeVisible()
   })
 
-  test('строки приезжают на языке страницы, а не ключами', async ({ page }, testInfo) => {
+  test('строки приезжают на языке страницы, а не английским fallback', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
 
-    // Язык берётся из `<html lang>` страницы `/ru/`, а не из настроек Astro:
-    // на статической сборке это единственный источник, знающий локаль маршрута.
     await page.goto('/ru/')
 
-    // Ретраящийся ассерт обязателен: блок грузится асинхронно, и до его прихода
-    // `t()` синхронно отдаёт сам ключ. Проверка на «нет ошибок в консоли»
-    // прошла бы и при полностью отключённом i18n — эта не пройдёт.
-    await expect(page.getByTestId('locale-demo')).toContainText('Назад')
-    await expect(page.getByTestId('locale-demo')).toContainText('Вперёд')
-    // Английского на русской странице быть не должно: иначе блок не доехал
-    // и виден fallback.
-    await expect(page.getByTestId('locale-demo')).not.toContainText('Prev')
+    // Обе строки — из словаря **ядра**, а не приложения: гейт держит механику
+    // пакета, а не переводы примера.
+    //
+    // Поиск по всей странице, а не внутри фильтра: после гидратации панель
+    // уезжает телепортом в `body`, и поле поиска покидает разметку компонента.
+    // Кнопка очистки остаётся в триггере — но и её ищем страницей, чтобы тест
+    // не зависел от того, что именно телепортировалось.
+    await expect(page.locator('[placeholder="Поиск…"]')).toBeAttached()
+    await expect(page.locator('[aria-label="Очистить"]')).toBeAttached()
+    // Английский на русской странице означает, что блок не доехал и виден fallback.
+    await expect(page.locator('[placeholder="Search…"]')).toHaveCount(0)
+    await expect(page.locator('[aria-label="Clear"]')).toHaveCount(0)
+  })
+})
+
+/**
+ * Строки в разметке, а не догрузкой.
+ *
+ * Ассерт выше держит другой факт — что строки на странице русские вообще.
+ * Здесь проверяется то, чего он увидеть не может: что они уже лежат в HTML и
+ * что первый клиентский рендер строится из снимка, а не из сети.
+ */
+test.describe('строки в серверной разметке', () => {
+  // Единственный способ увидеть именно то, что отдал сервер: с включённым JS
+  // гидратация починила бы разметку, и тест прошёл бы мимо предмета.
+  test.use({ javaScriptEnabled: false })
+
+  test('`/ru/` приезжает по-русски ещё до гидратации', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/')
+    const filter = page.getByTestId('env-filter')
+
+    await expect(filter.locator('[placeholder="Поиск…"]')).toBeAttached()
+    await expect(filter.locator('[aria-label="Очистить"]')).toBeAttached()
+    await expect(filter.locator('[placeholder="Search…"]')).toHaveCount(0)
+  })
+})
+
+test.describe('снимок строк', () => {
+  test('первый клиентский рендер не ждёт сети', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    // Чанки словарей физически недоступны: остаться русским остров может только
+    // из снимка. Гидратации это не мешает — `loadUsedBlocks` на клиенте не ждут,
+    // а ошибку загрузки блока fint гасит своим `onError`.
+    await page.route('**/_astro/ru-*.js', route => route.abort())
+    await page.route('**/_astro/en-*.js', route => route.abort())
+
+    await page.goto('/ru/')
+    // Атрибут `ssr` снимает сам `astro-island` после гидратации — иначе тест
+    // проверял бы всё ту же серверную разметку.
+    await page.locator('astro-island:not([ssr])').first().waitFor()
+
+    const filter = page.getByTestId('env-filter')
+    await expect(filter.locator('[aria-label="Очистить"]')).toBeAttached()
+    await expect(filter.locator('[aria-label="Clear"]')).toHaveCount(0)
+  })
+
+  test('лежит в `<head>` и укладывается в бюджет', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/')
+
+    const shape = await page.evaluate(() => {
+      const block = document.querySelector('script[type="application/json"][data-granularity-i18n]')
+      if (!block?.textContent)
+        return null
+      return {
+        inHead: block.parentElement?.tagName === 'HEAD',
+        bytes: block.textContent.length,
+        locale: (JSON.parse(block.textContent) as { locale: string }).locale,
+      }
+    })
+
+    expect(shape, 'блок снимка не найден в разметке').not.toBeNull()
+    expect(shape!.inHead).toBe(true)
+    expect(shape!.locale).toBe('ru')
+    // Бюджет — гейт, как и 512 Б у скрипта темы: снимок лежит на критическом
+    // пути документа, и его раздувание обязано ронять прогон, а не проходить
+    // незамеченным.
+    expect(shape!.bytes).toBeLessThanOrEqual(2048)
   })
 })
