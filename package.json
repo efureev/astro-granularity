@@ -40,7 +40,6 @@
   "types": "./dist/types/index.d.ts",
   "files": [
     "dist",
-    "components",
     "client.d.ts"
   ],
   "exports": {
@@ -64,7 +63,6 @@
       "import": "./dist/middleware.js",
       "default": "./dist/middleware.js"
     },
-    "./components/*": "./components/*",
     "./package.json": "./package.json"
   },
   "peerDependencies": {

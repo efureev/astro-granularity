@@ -7,6 +7,20 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- **`<ThemeToggle>` and the whole `./components/*` subpath.** A theme switch is
+  application markup, not integration surface: the package writes the reader half of
+  the contract (the inline script) and has no business shipping the writer half as a
+  published component. `files` and `exports` lose `components` entirely.
+
+  The contract itself is unchanged and now documented as a recipe in the README —
+  storage key, `data-theme` on `documentElement`, `colorScheme`. A working
+  implementation lives in `example/src/components/ThemeToggle.astro`.
+
+  **Breaking** for anyone importing `@feugene/astro-granularity/components/ThemeToggle.astro`:
+  copy that file into the application.
+
 ### Added
 
 - Translations are now rendered into the static HTML instead of being fetched by the client.

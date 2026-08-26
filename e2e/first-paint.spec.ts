@@ -122,9 +122,20 @@ test.describe('переключатель', () => {
   test('выбор переживает перезагрузку без мигания', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
 
+    // Выбор записывается напрямую, а не кликом по переключателю: проверяется
+    // инлайн-скрипт **пакета**, и зависимость от разметки примера сделала бы
+    // этот гейт заложником чужой кнопки.
     await page.goto('/')
-    await page.locator('[data-gr-theme-toggle]').click()
-    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+    await page.evaluate(() => localStorage.setItem('gr-theme', 'dark'))
+
+    // Переход до начала съёмки обязателен: скринкаст ловит и кадры уходящей
+    // страницы, а она после одной лишь записи в хранилище осталась бы светлой —
+    // тест упал бы на собственной подготовке, а не на мигании.
+    await page.goto('/')
+    expect(
+      await page.evaluate(() => document.documentElement.dataset.theme),
+      'сохранённая тема не применилась: скрипт темы не вставлен или не отработал',
+    ).toBe('dark')
 
     const frames = await captureFrames(page, '/')
     for (const frame of frames) {

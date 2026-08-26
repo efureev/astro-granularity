@@ -122,16 +122,24 @@ export default (app) => provideGranularityI18n(app, myAdapter)
 под ключ `fint-i18n`: пакеты, не перешедшие на композабл ядра, ищут инстанс только там,
 и без этого молча покажут английский fallback.
 
-## Переключатель темы
+## Свой переключатель темы
 
-```astro
----
-import ThemeToggle from '@feugene/astro-granularity/components/ThemeToggle.astro'
----
-<ThemeToggle class="...">Тема</ThemeToggle>
+Интеграция вставляет скрипт, который тему **читает**. Писать её — задача приложения,
+и совпасть надо в трёх местах, иначе выбор потеряется или страница мигнёт:
+
+```js
+localStorage.setItem('gr-theme', theme)          // ключ = опция `themeStorageKey`
+document.documentElement.dataset.theme = theme   // 'light' | 'dark'
+document.documentElement.style.colorScheme = theme
 ```
 
-Без Vue: один `<button>` и делегированный обработчик, общий на все кнопки страницы.
+Третья строка не косметика: без неё нативные скроллбары, `<select>` и поля ввода
+останутся светлыми на тёмной странице.
+
+Vue ради одной кнопки поднимать незачем — хватит `<button>` и делегированного
+обработчика на `document`. Готовый пример — `example/src/components/ThemeToggle.astro`:
+там же обработаны кнопки, приезжающие после навигации `ClientRouter`, и бросок
+`localStorage` в приватном режиме Safari.
 
 ## Что нужно знать про Astro
 
