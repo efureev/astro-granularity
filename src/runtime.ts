@@ -96,3 +96,19 @@ export function provideGranularityI18n(
   if (options.alsoFintKey ?? true)
     app.provide(FINT_I18N_KEY, adapter)
 }
+
+/**
+ * Шов для приложения, которое пишет свою точку входа.
+ *
+ * Локаль страницы на сборке объявляет middleware интеграции, а снимок строк
+ * лежит в разметке — обе величины доступны и тому, кто взял другой i18n-рантайм.
+ * Реэкспорт, а не копия: `ssr.ts` обязан быть одним модулем на сборку, иначе
+ * состояние страницы разъедется между копиями и снимок выйдет пустым.
+ */
+export {
+  type GranularityI18nSnapshot,
+  readServerPageLocale,
+  readSnapshotFromDocument,
+  registerSnapshotBuilder,
+  SNAPSHOT_ATTR,
+} from './ssr'

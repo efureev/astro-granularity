@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { VIRTUAL_I18N_ID } from '../i18n'
 import { createVirtualI18nPlugin } from '../i18n-plugin'
 
-const input = { packages: [], locales: ['en'], defaultLocale: 'en' }
+const input = { packages: [], locales: ['en'], defaultLocale: 'en', ssrStrings: 'used' as const }
 const RESOLVED = `\0${VIRTUAL_I18N_ID}`
 
 describe('createVirtualI18nPlugin', () => {

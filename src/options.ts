@@ -55,10 +55,28 @@ export type GranularityI18nOptions = {
    * отдаёт в `dist` только два чанка.
    */
   locales?: string[]
+  /**
+   * Класть строки в HTML на сборке, чтобы клиент не ждал их из сети.
+   *
+   * Без этого статическая страница приезжает с литеральными fallback'ами
+   * компонентов и перещёлкивается на язык страницы после гидратации острова.
+   *
+   * - `'used'` — только ключи, которые сервер отрисовал на этой странице.
+   *   Блоки не помечаются загруженными, поэтому клиент всё равно догружает
+   *   словарь фоном: режим не может выйти хуже выключенного.
+   * - `'full'` — весь словарь текущей локали. Клиент чанк не грузит вовсе, но
+   *   словарь дублируется в каждую страницу и перестаёт быть общим кэшируемым
+   *   файлом.
+   * - `false` — не вмешиваться; middleware не регистрируется.
+   */
+  ssrStrings?: SSRStringsMode
 }
 
+/** Объём снимка строк, который интеграция кладёт в HTML. */
+export type SSRStringsMode = 'used' | 'full' | false
+
 export type ResolvedOptions = Required<Omit<GranularityAstroOptions, 'i18n'>> & {
-  i18n: { packages: string[], locales: string[] } | false
+  i18n: { packages: string[], locales: string[], ssrStrings: SSRStringsMode } | false
 }
 
 const DEFAULTS: ResolvedOptions = {
@@ -67,7 +85,7 @@ const DEFAULTS: ResolvedOptions = {
   injectThemeScript: true,
   injectStyleBundle: false,
   resolver: true,
-  i18n: { packages: [], locales: [] },
+  i18n: { packages: [], locales: [], ssrStrings: 'used' },
   strict: true,
 }
 
@@ -77,9 +95,17 @@ function resolveI18n(i18n: GranularityAstroOptions['i18n']): ResolvedOptions['i1
   if (i18n !== undefined && (typeof i18n !== 'object' || i18n === null || Array.isArray(i18n)))
     throw new TypeError('[astro-granularity] i18n: ожидался объект настроек или `false`.')
 
+  const ssrStrings = i18n?.ssrStrings ?? 'used'
+  if (ssrStrings !== 'used' && ssrStrings !== 'full' && ssrStrings !== false) {
+    throw new TypeError(
+      `[astro-granularity] i18n.ssrStrings: ожидалось 'used' | 'full' | false, получено ${JSON.stringify(ssrStrings)}.`,
+    )
+  }
+
   return {
     packages: [...(i18n?.packages ?? [])],
     locales: [...(i18n?.locales ?? [])],
+    ssrStrings,
   }
 }
 

@@ -1,3 +1,4 @@
+import type { SSRStringsMode } from './options'
 import { buildI18nModuleSource, VIRTUAL_I18N_ID } from './i18n'
 
 /**
@@ -12,6 +13,7 @@ export type VirtualI18nInput = {
   packages: string[]
   locales: string[]
   defaultLocale: string
+  ssrStrings: SSRStringsMode
 }
 
 /** Структурный тип плагина: `vite` в зависимости пакета не тянем. */

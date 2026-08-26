@@ -7,6 +7,32 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Translations are now rendered into the static HTML instead of being fetched by the client.
+  A pre-ordered middleware declares the route locale before the page renders and embeds a
+  snapshot of the strings into `<head>`; the island entry point applies that snapshot
+  synchronously before `app.mount`, so the first client render already matches the server.
+  No per-page code is required — registering the integration is enough.
+- `i18n.ssrStrings` option — `'used'` (default) carries only the keys the server actually
+  rendered on that page and lets the client keep the dictionary as a shared cacheable chunk;
+  `'full'` carries the whole dictionary of the page locale and removes the chunk fetch
+  entirely; `false` disables the middleware.
+- `./middleware` subpath, plus `readServerPageLocale`, `readSnapshotFromDocument`,
+  `registerSnapshotBuilder`, `SNAPSHOT_ATTR` and `GranularityI18nSnapshot` exported from
+  `./runtime` for applications that ship their own `appEntrypoint`.
+- Browser gates for the server-rendered strings: markup checked with JavaScript disabled,
+  hydration checked with the dictionary chunks blocked, and a 2 KB budget on the snapshot.
+
+### Fixed
+
+- The prerender pass no longer renders every page with the default locale. The i18n instance
+  is now keyed by locale rather than being a single module-level singleton — a prerender is
+  one process for the whole build, so the first page rendered used to fix the locale for all
+  the others.
+- The app entry point now awaits the dictionary before `renderToString`, which is what made
+  static pages ship the components' literal English fallbacks.
+
 ## [v0.1.0] 2026-08-26
 
 ### Added

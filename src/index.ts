@@ -4,12 +4,18 @@ import { createVirtualI18nPlugin } from './i18n-plugin'
 import { resolveOptions, type GranularityAstroOptions } from './options'
 import { assertThemeScriptBudget, createThemeScript } from './theme-script'
 
-export type { DefaultTheme, GranularityAstroOptions, ResolvedOptions, ThemeName } from './options'
+export type { DefaultTheme, GranularityAstroOptions, ResolvedOptions, SSRStringsMode, ThemeName } from './options'
 export { GRANULAR_PRESET_NAME, VUE_INTEGRATION_NAME } from './env-check'
 export { assertPackageSpecifier, buildI18nModuleSource, VIRTUAL_I18N_ID } from './i18n'
 export { createVirtualI18nPlugin, type VirtualI18nInput, type VirtualI18nPlugin } from './i18n-plugin'
 export { deriveI18nBlocks, type GranularityI18nAdapterLike, type GranularityLocaleLoaders,
   provideGranularityI18n, type ProvideI18nOptions, readPageLocale } from './runtime'
+// Шов снимка строк из главного входа не экспортируется намеренно. `ssr.ts`
+// держит состояние страницы модульной переменной, а `dist/index.js` исполняется
+// в процессе конфига Astro — не в бандле пререндера, где живут `app.js` и
+// `middleware.js`. Реестры модулей у них разные, значит и экземпляры состояния
+// тоже: `readServerPageLocale()`, взятый отсюда, всегда возвращал бы `null`.
+// Приложению шов доступен там, где он работает, — в `./runtime`.
 export { createThemeScript, resolveTheme, THEME_SCRIPT_BUDGET_BYTES } from './theme-script'
 
 /**
@@ -55,7 +61,7 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
   return {
     name: '@feugene/astro-granularity',
     hooks: {
-      'astro:config:setup': async ({ config, updateConfig, injectScript, logger }) => {
+      'astro:config:setup': async ({ addMiddleware, config, updateConfig, injectScript, logger }) => {
         if (resolved.injectThemeScript) {
           const script = createThemeScript(resolved.themeStorageKey, resolved.defaultTheme)
           assertThemeScriptBudget(script)
@@ -82,6 +88,9 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
           },
         })
 
+        if (resolved.i18n !== false && resolved.i18n.ssrStrings !== false)
+          registerSSRStrings(addMiddleware, config.build?.concurrency ?? 1, logger)
+
         if (resolved.resolver) {
           const plugin = await loadResolverPlugin(logger)
           if (plugin)
@@ -100,6 +109,36 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
 }
 
 type Logger = { warn: (message: string) => void, error: (message: string) => void }
+
+/**
+ * Middleware, кладущий строки в HTML.
+ *
+ * Это единственный канал Astro, который исполняется **на каждую страницу** и
+ * при этом знает её маршрут: `injectScript` принимает строку, фиксируемую один
+ * раз на сборку, а точка входа `@astrojs/vue` получает только `app`. Без него
+ * локаль страницы на сборке узнать нечем, и `/ru/` рендерится английским.
+ *
+ * Состояние страницы хранится модульной переменной, а параллельная генерация
+ * перемешала бы страницы между собой. Молча отдавать при этом чужие строки
+ * нельзя, поэтому фича гасится — с объяснением и готовой починкой.
+ */
+function registerSSRStrings(
+  addMiddleware: (mid: { order: 'pre' | 'post', entrypoint: string }) => void,
+  concurrency: number,
+  logger: Logger,
+): void {
+  if (concurrency > 1) {
+    logger.warn(
+      'строки в HTML выключены: `build.concurrency` больше единицы, и страницы генерируются '
+      + 'параллельно — язык одной попал бы в разметку другой.\n'
+      + '  Починка: `build: { concurrency: 1 }` в `astro.config`, либо `i18n: { ssrStrings: false }`, '
+      + 'чтобы убрать предупреждение и оставить клиентскую догрузку.',
+    )
+    return
+  }
+
+  addMiddleware({ order: 'pre', entrypoint: '@feugene/astro-granularity/middleware' })
+}
 
 /**
  * Тип плагина — `any` осознанно. В дереве два независимых экземпляра типов

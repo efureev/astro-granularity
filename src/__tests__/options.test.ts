@@ -9,7 +9,7 @@ describe('resolveOptions', () => {
       injectThemeScript: true,
       injectStyleBundle: false,
       resolver: true,
-      i18n: { packages: [], locales: [] },
+      i18n: { packages: [], locales: [], ssrStrings: 'used' },
       strict: true,
     })
   })
@@ -29,15 +29,32 @@ describe('resolveOptions', () => {
     const locales = ['en']
     const resolved = resolveOptions({ i18n: { locales } })
     locales.push('ru')
-    expect(resolved.i18n).toEqual({ packages: [], locales: ['en'] })
+    expect(resolved.i18n).toEqual({ packages: [], locales: ['en'], ssrStrings: 'used' })
   })
 
   it('`i18n: false` выключает модуль целиком', () => {
     expect(resolveOptions({ i18n: false }).i18n).toBe(false)
   })
 
+  it('ssrStrings по умолчанию `used`: строки едут в HTML, но клиент долечивает фоном', () => {
+    expect(resolveOptions({}).i18n).toMatchObject({ ssrStrings: 'used' })
+  })
+
+  it('ssrStrings принимает `full` и `false`', () => {
+    expect(resolveOptions({ i18n: { ssrStrings: 'full' } }).i18n).toMatchObject({ ssrStrings: 'full' })
+    expect(resolveOptions({ i18n: { ssrStrings: false } }).i18n).toMatchObject({ ssrStrings: false })
+  })
+
+  it('чужое значение ssrStrings роняет на границе, а не в середине сборки', () => {
+    // @ts-expect-error проверяется поведение на входе из JS без типов
+    expect(() => resolveOptions({ i18n: { ssrStrings: 'all' } }))
+      .toThrow(/\[astro-granularity\] i18n\.ssrStrings/)
+    // @ts-expect-error то же самое для `true`: булев флаг здесь не режим
+    expect(() => resolveOptions({ i18n: { ssrStrings: true } })).toThrow(/ssrStrings/)
+  })
+
   it('без опции i18n модуль включён с пустым составом', () => {
-    expect(resolveOptions({}).i18n).toEqual({ packages: [], locales: [] })
+    expect(resolveOptions({}).i18n).toEqual({ packages: [], locales: [], ssrStrings: 'used' })
   })
 
   it('отвергает i18n не-объектом', () => {

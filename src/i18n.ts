@@ -1,3 +1,5 @@
+import type { SSRStringsMode } from './options'
+
 export const VIRTUAL_I18N_ID = 'virtual:granularity/i18n'
 
 /** Подпуть, из которого порождённый модуль берёт вывод блоков. */
@@ -10,6 +12,8 @@ export type I18nModuleInput = {
   locales: string[]
   /** Язык, когда `<html lang>` не прочитался. Берётся из `config.i18n` Astro. */
   defaultLocale: string
+  /** Объём снимка строк в HTML. Читают `app.ts` и `middleware.ts`. */
+  ssrStrings: SSRStringsMode
 }
 
 const IDENTIFIER = /^[a-z][\w$]*$/i
@@ -57,7 +61,7 @@ function assertLocaleName(locale: string): void {
  * языки отсекаются сборкой. Агрегат `/i18n/all` тянет все, включая `es`, —
  * порталу это лишние килобайты на каждом острове.
  */
-export function buildI18nModuleSource({ packages, locales, defaultLocale }: I18nModuleInput): string {
+export function buildI18nModuleSource({ packages, locales, defaultLocale, ssrStrings }: I18nModuleInput): string {
   const specifiers = ['@feugene/granularity', ...packages.filter(p => p !== '@feugene/granularity')]
   for (const name of specifiers)
     assertPackageSpecifier(name)
@@ -92,6 +96,11 @@ export function buildI18nModuleSource({ packages, locales, defaultLocale }: I18n
   // коллекции, поэтому реестра «пакет → имя константы» держать не нужно.
   lines.push('export const blocks = deriveI18nBlocks(loaders)')
   lines.push(`export const defaultLocale = ${JSON.stringify(defaultLocale)}`)
+  // Локали нужны middleware: без блока `i18n` в конфиге Astro `currentLocale`
+  // пуст, и разобрать маршрут больше не по чему. Имена уже прошли
+  // `assertLocaleName`, эмиссия через `JSON.stringify` — второй слой.
+  lines.push(`export const locales = ${JSON.stringify(locales)}`)
+  lines.push(`export const ssrStrings = ${JSON.stringify(ssrStrings)}`)
 
   return `${lines.join('\n')}\n`
 }

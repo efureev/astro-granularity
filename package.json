@@ -59,6 +59,11 @@
       "import": "./dist/runtime.js",
       "default": "./dist/runtime.js"
     },
+    "./middleware": {
+      "types": "./dist/types/middleware.d.ts",
+      "import": "./dist/middleware.js",
+      "default": "./dist/middleware.js"
+    },
     "./components/*": "./components/*",
     "./package.json": "./package.json"
   },

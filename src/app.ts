@@ -1,10 +1,12 @@
 /// <reference path="../client.d.ts" />
 import type { LocaleLoaderSource } from '@feugene/fint-i18n/core'
 import type { App } from 'vue'
-import { blocks, defaultLocale, loaders } from 'virtual:granularity/i18n'
-import { createFintI18n } from '@feugene/fint-i18n/core'
+import type { GranularityI18nSnapshot } from './ssr'
+import { blocks, defaultLocale, loaders, ssrStrings } from 'virtual:granularity/i18n'
+import { createFintI18n, getSSRState, hydrate } from '@feugene/fint-i18n/core'
 import { installI18n } from '@feugene/fint-i18n/vue'
 import { readPageLocale } from './runtime'
+import { readServerPageLocale, readSnapshotFromDocument, recordUsedKey, registerSnapshotBuilder } from './ssr'
 
 type FintI18n = ReturnType<typeof createFintI18n>
 
@@ -18,22 +20,45 @@ type FintI18n = ReturnType<typeof createFintI18n>
  * и раздаёт адаптер через `provideGranularityI18n` из
  * `@feugene/astro-granularity/runtime`, а лоадеры конвертирует само.
  */
-let instance: FintI18n | null = null
+const isServer = typeof document === 'undefined'
+
+/** Снимок читается однажды: разметка за время жизни страницы не меняется. */
+const snapshot = readSnapshotFromDocument()
 
 /**
- * Один экземпляр на страницу, а не на остров.
+ * Экземпляр на локаль, а не один на модуль.
  *
- * Острова Astro — независимые корни Vue, но граф модулей у них общий: этот
- * модуль исполняется один раз, и все острова получают тот же экземпляр. Без
- * синглтона каждый остров грузил бы словарь заново, а переключение языка в
- * одном не доходило бы до остальных.
+ * В браузере карта всегда содержит одну запись и работает как синглтон: острова
+ * Astro — независимые корни Vue с общим графом модулей, поэтому словарь грузится
+ * однажды, а переключение языка доходит до всех сразу.
+ *
+ * На сборке разница несущая: пререндер — один процесс на весь билд, и
+ * единственный экземпляр зафиксировал бы локаль первой отрендеренной страницы
+ * для всех остальных.
  */
-export function getGranularityI18n(): FintI18n {
-  if (instance)
-    return instance
+const instances = new Map<string, FintI18n>()
 
-  const locale = readPageLocale(defaultLocale)
-  instance = createFintI18n({
+/**
+ * Язык страницы.
+ *
+ * На сборке его объявляет middleware, и взяться ему больше неоткуда: `document`
+ * там нет, а маршрут `@astrojs/vue` в точку входа не передаёт — `setup` получает
+ * только `app`.
+ *
+ * В браузере снимок важнее `<html lang>`: он запись о том, чем рисовал сервер, и
+ * потому не расходится с ним на региональных тегах вроде `lang="ru-RU"`.
+ */
+function resolveLocale(): string {
+  return readServerPageLocale() ?? snapshot?.locale ?? readPageLocale(defaultLocale)
+}
+
+export function getGranularityI18n(): FintI18n {
+  const locale = resolveLocale()
+  const existing = instances.get(locale)
+  if (existing)
+    return existing
+
+  const instance = createFintI18n({
     locale,
     fallbackLocale: defaultLocale,
     // Без этого `fallbackLocale` объявлен, но пуст до первого переключения
@@ -58,11 +83,144 @@ export function getGranularityI18n(): FintI18n {
       + 'Вероятно, подключён пакет, чей `/i18n` отдаёт не `{ локаль: { блок: лоадер } }`.',
     )
   }
-  void instance.loadUsedBlocks(locale)
+  instances.set(locale, instance)
+
+  if (isServer && ssrStrings === 'used') {
+    instance.hooks.on('onTranslate', (payload) => {
+      // Только блочное тело и никакого `return`: `emitSync` подменяет payload
+      // любым не-`undefined` возвратом, а `t()` читает из подменённого `.result`.
+      // Стрелка `payload => used.add(payload.key)` вернула бы `Set` — и `t()`
+      // начал бы отдавать сам ключ на всём сайте.
+      recordUsedKey(payload.key)
+    })
+  }
+  else if (!isServer && snapshot) {
+    // Синхронно и до `app.mount`: `@astrojs/vue` ждёт нашу точку входа, поэтому
+    // первый клиентский рендер уже видит строки и совпадает с серверным.
+    hydrate(instance, snapshot as Parameters<typeof hydrate>[1])
+  }
+
   return instance
 }
 
+/**
+ * Поддерево сообщений, суженное до перечисленных ключей.
+ *
+ * Ключ приходит точками (`gr.pagination.next`), и `messages[локаль]` устроен так
+ * же: первый сегмент — имя блока, дальше вложенность. Лист копируется как есть:
+ * строкой он может и не быть — набор плюральных форм тоже лист, хотя и объект.
+ */
+function pickKeys(
+  source: Record<string, unknown> | undefined,
+  keys: readonly string[],
+): Record<string, unknown> | null {
+  if (!source)
+    return null
+
+  const picked: Record<string, unknown> = {}
+  let found = false
+
+  for (const key of keys) {
+    const path = key.split('.')
+    let from: unknown = source
+    for (const segment of path) {
+      if (typeof from !== 'object' || from === null) {
+        from = undefined
+        break
+      }
+      from = (from as Record<string, unknown>)[segment]
+    }
+    if (from === undefined)
+      continue
+
+    let into = picked
+    for (const segment of path.slice(0, -1)) {
+      if (typeof into[segment] !== 'object' || into[segment] === null)
+        into[segment] = {}
+      into = into[segment] as Record<string, unknown>
+    }
+    into[path[path.length - 1]!] = from
+    found = true
+  }
+
+  return found ? picked : null
+}
+
+/**
+ * Снимок строк текущей страницы.
+ *
+ * `null`, когда переносить нечего: ни один остров не спросил строк — значит и
+ * трогать HTML незачем.
+ */
+function buildSnapshot(locale: string, used: readonly string[]): GranularityI18nSnapshot | null {
+  const i18n = instances.get(locale)
+  if (!i18n)
+    return null
+
+  if (ssrStrings === 'full') {
+    const state = getSSRState(i18n, { locales: [locale] })
+    if (Object.keys(state.messages).length === 0)
+      return null
+    return { locale, messages: state.messages, blocks: state.blocks }
+  }
+
+  const messages: GranularityI18nSnapshot['messages'] = {}
+  const own = pickKeys(i18n.messages[locale], used.filter(key => i18n.te(key, locale)))
+  if (own)
+    messages[locale] = own
+
+  // `preloadFallback` тянет на сборке и запасную локаль, поэтому сервер мог
+  // отрисовать английский текст для ключа, которого в основной локали нет.
+  // Такие ключи переносятся поштучно: иначе ровно они мигнули бы **сырым
+  // ключом**, а в режиме `full` — необратимо, там клиент запасную локаль уже
+  // не загрузит.
+  const fallback = i18n.fallbackLocale
+  if (fallback && fallback !== locale) {
+    const rescued = pickKeys(
+      i18n.messages[fallback],
+      used.filter(key => !i18n.te(key, locale) && i18n.te(key, fallback)),
+    )
+    if (rescued)
+      messages[fallback] = rescued
+  }
+
+  if (Object.keys(messages).length === 0)
+    return null
+
+  // `blocks` пуст намеренно: блок не помечается загруженным, поэтому клиент
+  // всё равно догрузит словарь фоном и долечит всё, чего журнал не поймал, —
+  // строки из `tm()`, например. Режим не может выйти хуже отсутствия снимка.
+  return { locale, messages, blocks: {} }
+}
+
+if (isServer && ssrStrings !== false)
+  registerSnapshotBuilder(buildSnapshot)
+
 /** Точка входа для `vue({ appEntrypoint: '@feugene/astro-granularity/app' })`. */
-export default function setup(app: App): void {
-  installI18n(app, getGranularityI18n())
+export default async function setup(app: App): Promise<void> {
+  const i18n = getGranularityI18n()
+
+  if (isServer) {
+    try {
+      // Промис ждут, и это вся разница между русским HTML и английским:
+      // `renderToString` иначе уходит вперёд словаря, и в разметке остаются
+      // литеральные fallback'и компонентов. Ждать можно потому, что
+      // `@astrojs/vue` вызывает точку входа как `await setup(app)`.
+      //
+      // Ошибка гасится здесь, а не всплывает: наверху её поймал бы
+      // `astro-island.start()` как отказ гидратации, и остров не смонтировался
+      // бы вовсе — потеря интерактивности вместо потери перевода.
+      await i18n.loadUsedBlocks(i18n.locale.value)
+    }
+    catch (error) {
+      console.warn('[astro-granularity] словарь не загрузился на сборке — строки уйдут в fallback.', error)
+    }
+  }
+  else {
+    // Клиент не ждёт: строки первого кадра уже пришли снимком, а ожидание
+    // отложило бы монтирование острова на целый чанк словаря.
+    void i18n.loadUsedBlocks(i18n.locale.value)
+  }
+
+  installI18n(app, i18n)
 }

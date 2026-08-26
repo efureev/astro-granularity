@@ -17,4 +17,8 @@ declare module 'virtual:granularity/i18n' {
   export const blocks: string[]
   /** Язык из `config.i18n.defaultLocale` Astro; запасной для `<html lang>`. */
   export const defaultLocale: string
+  /** Языки приложения из опции `i18n.locales`; пусто при агрегате `/i18n/all`. */
+  export const locales: string[]
+  /** Объём снимка строк в HTML из опции `i18n.ssrStrings`. */
+  export const ssrStrings: 'used' | 'full' | false
 }

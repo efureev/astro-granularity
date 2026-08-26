@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { assertPackageSpecifier, buildI18nModuleSource } from '../i18n'
 
-const base = { packages: [], locales: [], defaultLocale: 'en' }
+const base = { packages: [], locales: [], defaultLocale: 'en', ssrStrings: 'used' as const }
 
 /** Пакеты экосистемы, на которых проверяется форма порождённого модуля. */
 const ECOSYSTEM = [
@@ -14,6 +14,17 @@ const ECOSYSTEM = [
 ]
 
 describe('buildI18nModuleSource', () => {
+  it('эмитит locales — их читает middleware, когда `currentLocale` пуст', () => {
+    const source = buildI18nModuleSource({ ...base, locales: ['en', 'ru'] })
+
+    expect(source).toContain('export const locales = ["en","ru"]')
+  })
+
+  it('эмитит ssrStrings — режим читают и точка входа, и middleware', () => {
+    expect(buildI18nModuleSource(base)).toContain('export const ssrStrings = "used"')
+    expect(buildI18nModuleSource({ ...base, ssrStrings: false })).toContain('export const ssrStrings = false')
+  })
+
   it('ядро подключается всегда, даже когда packages пуст', () => {
     expect(buildI18nModuleSource(base)).toContain('"@feugene/granularity/i18n/all"')
   })
@@ -27,7 +38,9 @@ describe('buildI18nModuleSource', () => {
     expect(source).not.toContain('/i18n/all')
     expect(source).toContain('en as en0')
     expect(source).toContain('ru as ru0')
-    expect(source).not.toContain('es')
+    // По имени привязки, а не по подстроке: `es` встречается в самом слове
+    // `locales`, и проверка на подстроку зеленела бы мимо предмета.
+    expect(source).not.toMatch(/\bes as es\d/)
   })
 
   it('спутники подключаются рядом с ядром', () => {
