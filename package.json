@@ -74,7 +74,7 @@
   "devDependencies": {
     "@astrojs/vue": "^7.0.2",
     "@feugene/fint-i18n": "^0.7.0",
-    "@feugene/granularity": "^0.35.0",
+    "@feugene/granularity": "^0.36.0",
     "@feugene/unocss-preset-granular": "^0.13.0",
     "@feugene/unplugin-granularity": "^0.6.1",
     "@floating-ui/dom": "^1.8.0",

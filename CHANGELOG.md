@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Development now runs against `@feugene/granularity` 0.36.0. The peer range is unchanged
+  (`>=0.35.0 <1.0.0`) — the integration itself does not depend on anything new.
+
 ### Removed
 
 - **`<ThemeToggle>` and the whole `./components/*` subpath.** A theme switch is
