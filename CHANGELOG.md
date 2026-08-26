@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.0] 2026-08-27
+
 ### Changed
 
 - Development now runs against `@feugene/granularity` 0.36.0. The peer range is unchanged
