@@ -37,9 +37,9 @@ const relative = computed(() => {
 </script>
 
 <template>
-  <!-- Высота зафиксирована: остров приходит после первой отрисовки, и без неё
-       появление текста сдвинуло бы макет. -->
-  <p data-testid="last-checked" class="m-0 flex min-h-5 items-center gap-1.5 text-sm text-[var(--gr-muted-fg)]">
+  <!-- Место под остров резервирует страница: `client:only` на сервере не даёт
+       разметки вовсе, поэтому изнутри резервировать нечем. -->
+  <p data-testid="last-checked" class="m-0 flex items-center gap-1.5 text-sm text-[var(--gr-muted-fg)]">
     <template v-if="checkedAt">
       <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />

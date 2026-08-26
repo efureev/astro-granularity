@@ -24,7 +24,15 @@ const t = strings(locale)
       {t.overviewTitle}
     </h1>
     <p class="m-0 max-w-2xl text-[var(--gr-muted-fg)]">{t.overviewDescription}</p>
-    <LastChecked client:only="vue" label={t.lastCheckedLabel} locale={locale} />
+    <!--
+      Место под остров резервируется здесь, а не внутри компонента: `client:only`
+      на сервере не рендерит ничего, и до монтирования самого элемента с его
+      `min-height` попросту нет — резервировать было бы нечему. Высота равна
+      строке `text-sm`.
+    -->
+    <div class="min-h-5">
+      <LastChecked client:only="vue" label={t.lastCheckedLabel} locale={locale} />
+    </div>
   </header>
 
   <ServiceBoard

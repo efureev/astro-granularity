@@ -20,7 +20,20 @@ const options: PresetGranularNodeOptions = {
   layer: 'granular',
 }
 
+const content = granularContent(options)
+
 export default defineConfig({
-  content: granularContent(options),
+  content: {
+    ...content,
+    /**
+     * Свои исходники — с диска, а не только через конвейер трансформаций.
+     *
+     * Без этой строки классы, встречающиеся **только** внутри острова
+     * `client:only`, в CSS не попадают вовсе: такой остров не участвует в
+     * серверной сборке, а к клиентской стили уже собраны. Остров приезжает
+     * без стилей, и ни ошибки, ни предупреждения при этом нет.
+     */
+    filesystem: [...(content.filesystem ?? []), 'src/**/*.{vue,astro,ts}'],
+  },
   presets: [presetMini(), presetGranularNode(options)],
 })
