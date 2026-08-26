@@ -1,0 +1,12 @@
+{
+  "name": "astro-granularity-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@feugene/astro-granularity": "link:.."
+  }
+}

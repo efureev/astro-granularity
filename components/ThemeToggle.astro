@@ -1,0 +1,83 @@
+---
+/**
+ * Переключатель темы без Vue.
+ *
+ * Тянуть остров ради одной кнопки бессмысленно: вся работа — прочитать
+ * `data-theme`, записать обратное и сохранить выбор. Скрипт Astro поднимает
+ * один на страницу независимо от числа кнопок.
+ */
+interface Props {
+  class?: string
+  /** Ключ хранилища. Должен совпадать с `themeStorageKey` интеграции. */
+  storageKey?: string
+  /** Доступное имя, когда нажатие включит светлую тему. */
+  labelLight?: string
+  /** Доступное имя, когда нажатие включит тёмную. */
+  labelDark?: string
+}
+
+const {
+  class: className,
+  storageKey = 'gr-theme',
+  labelLight = 'Switch to light theme',
+  labelDark = 'Switch to dark theme',
+} = Astro.props
+---
+
+<button
+  type="button"
+  class={className}
+  data-gr-theme-toggle
+  data-storage-key={storageKey}
+  data-label-light={labelLight}
+  data-label-dark={labelDark}
+>
+  <slot />
+</button>
+
+<script>
+  const SELECTOR = '[data-gr-theme-toggle]'
+
+  function current(): 'light' | 'dark' {
+    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+  }
+
+  /**
+   * Имя кнопки описывает результат нажатия, а не текущее состояние: «Switch to
+   * dark theme» на светлой странице. `aria-pressed` здесь только запутал бы —
+   * непонятно, что считать нажатым.
+   */
+  function syncLabels() {
+    const next = current() === 'dark' ? 'light' : 'dark'
+    for (const el of document.querySelectorAll<HTMLElement>(SELECTOR)) {
+      const label = next === 'dark' ? el.dataset.labelDark : el.dataset.labelLight
+      if (label)
+        el.setAttribute('aria-label', label)
+    }
+  }
+
+  function apply(theme: 'light' | 'dark', storageKey: string) {
+    const root = document.documentElement
+    root.dataset.theme = theme
+    root.style.colorScheme = theme
+    // Запись бросает в приватном режиме Safari — тема при этом обязана
+    // переключиться, просто не переживёт перезагрузку.
+    try {
+      localStorage.setItem(storageKey, theme)
+    }
+    catch {}
+    syncLabels()
+  }
+
+  // Делегирование, а не слушатель на кнопку: кнопки могут приехать позже —
+  // из острова, из перехода `ClientRouter`, из вставленного фрагмента.
+  document.addEventListener('click', (event) => {
+    const target = (event.target as Element | null)?.closest<HTMLElement>(SELECTOR)
+    if (!target)
+      return
+    apply(current() === 'dark' ? 'light' : 'dark', target.dataset.storageKey ?? 'gr-theme')
+  })
+
+  syncLabels()
+  document.addEventListener('astro:after-swap', syncLabels)
+</script>

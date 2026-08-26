@@ -1,0 +1,110 @@
+{
+  "name": "@feugene/astro-granularity",
+  "description": "Astro integration for @feugene/granularity — flash-free theme, styles, auto-import resolver and i18n blocks in one line.",
+  "version": "0.1.0",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": {
+    "name": "Evgeniy Fureev",
+    "url": "https://github.com/efureev"
+  },
+  "homepage": "https://efureev.github.io/granularity",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/efureev/astro-granularity.git"
+  },
+  "bugs": {
+    "url": "https://github.com/efureev/astro-granularity/issues"
+  },
+  "keywords": [
+    "astro",
+    "astro-integration",
+    "astro-component",
+    "vue",
+    "vue3",
+    "islands",
+    "design-system",
+    "granularity",
+    "dark-mode",
+    "unocss"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "files": [
+    "dist",
+    "components",
+    "client.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./app": {
+      "types": "./dist/types/app.d.ts",
+      "import": "./dist/app.js",
+      "default": "./dist/app.js"
+    },
+    "./runtime": {
+      "types": "./dist/types/runtime.d.ts",
+      "import": "./dist/runtime.js",
+      "default": "./dist/runtime.js"
+    },
+    "./components/*": "./components/*",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@astrojs/vue": ">=7.0.0 <8.0.0",
+    "@feugene/fint-i18n": ">=0.6.0 <1.0.0",
+    "@feugene/granularity": ">=0.35.0 <1.0.0",
+    "astro": ">=7.0.0 <8.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/vue": "^7.0.2",
+    "@feugene/fint-i18n": "^0.7.0",
+    "@feugene/granularity": "^0.35.0",
+    "@feugene/unocss-preset-granular": "^0.13.0",
+    "@feugene/unplugin-granularity": "^0.6.1",
+    "@floating-ui/dom": "^1.8.0",
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.3.0",
+    "@unocss/astro": "^66.8.1",
+    "@unocss/config": "^66.8.1",
+    "astro": "^7.2.7",
+    "esbuild": "^0.28.2",
+    "sharp": "^0.35.3",
+    "typescript": "^7.0.2",
+    "unocss": "^66.8.1",
+    "unplugin-vue-components": "^32.0.0",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10",
+    "vue": "^3.5.40"
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest --config vitest.config.ts",
+    "test:run": "vitest run --config vitest.config.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "peerDependenciesMeta": {
+    "@astrojs/vue": {
+      "optional": true
+    },
+    "@feugene/fint-i18n": {
+      "optional": true
+    }
+  },
+  "packageManager": "yarn@1.22.22"
+}

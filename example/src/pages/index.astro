@@ -1,0 +1,21 @@
+---
+import '../styles/theme.css'
+import ThemeToggle from '@feugene/astro-granularity/components/ThemeToggle.astro'
+import ButtonDemo from '../components/ButtonDemo.vue'
+import OverlayDemo from '../components/OverlayDemo.vue'
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>astro-granularity example</title>
+  </head>
+  <body>
+    <main>
+      <h1>astro-granularity</h1>
+      <ThemeToggle>Toggle theme</ThemeToggle>
+      <ButtonDemo client:visible />
+      <OverlayDemo client:load />
+    </main>
+  </body>
+</html>

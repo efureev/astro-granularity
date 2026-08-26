@@ -1,0 +1,20 @@
+/dist
+yarn.lock
+/node_modules
+/coverage
+junit-report.xml
+.env
+.eslintcache
+/example/dist
+/example/.astro
+/example/node_modules
+/test-results
+/playwright-report
+/.idea
+# Рабочий слой: ТЗ и очередь работ ведутся локально и в публичный репозиторий не уезжают.
+/SPEC.md
+/ROADMAP.md
+
+# Конфигурация ассистента: рабочий слой владельца, в публичный репозиторий не уезжает.
+/CLAUDE.md
+/.claude/

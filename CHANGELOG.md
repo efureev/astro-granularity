@@ -1,0 +1,85 @@
+# Changelog
+
+All notable changes to the [`@feugene/astro-granularity`](.) package are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
+to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+
+- Astro integration entry point: injects the flash-free theme script, registers the
+  auto-import resolver and validates the environment.
+- Flash-free theme script rendered inline into `<head>`. Resolves the theme exactly like the
+  core `useTheme` (stored choice → `prefers-color-scheme` → `defaultTheme`) and also sets
+  `color-scheme`, which the core does not set at all — without it native scrollbars, selects
+  and inputs stay light on a dark page.
+- Environment gate: fails the build when `@astrojs/vue` is missing or when the UnoCSS config
+  has no `granular-preset`. The config is never patched silently — a silently rewritten
+  `uno.config.ts` produces bugs that take days to find.
+- Size budget for the theme script (512 B). It blocks first paint by definition, so it grows
+  by decision, not by accident.
+- Generated virtual module with locale loaders. Explicit `locales` import named exports so
+  unused languages are dropped; without them the aggregate pulls every locale. Block names
+  are derived from the loaders themselves — they sit inside the collection as its
+  second-level key — so the integration keeps no registry of "package → block constant".
+  Those constant names are not derivable from the package name (`granularity-forms-schema`
+  declares `grForms`), which is what a registry would otherwise exist for.
+- Package specifiers are validated before substitution and emitted through `JSON.stringify`,
+  the same two layers that already guard locale names: both reach the generated module as
+  identifiers, and an unchecked one becomes executable code in someone else's build.
+- Shared i18n instance for `vue({ appEntrypoint: '@feugene/astro-granularity/app' })` — one
+  per page, not per island: islands are separate Vue roots but share the module graph.
+- `@feugene/astro-granularity/runtime` — the browser-side pieces, free of any `fint-i18n`
+  import even in types: `deriveI18nBlocks`, `readPageLocale` and `provideGranularityI18n`.
+  An application on another i18n runtime sets `i18n: false`, writes its own entrypoint and
+  hands over an adapter; the core asks it for `t` and, when available, `te`.
+  `provideGranularityI18n` also publishes under the `fint-i18n` key by default — packages
+  that have not moved to the core composable look only there, and without it they fall back
+  to English in silence.
+- `client.d.ts` declares the virtual module, so an application writing its own entrypoint
+  gets types for it.
+- `i18n: false` still resolves the virtual id and throws an explaining error on load: left
+  unresolved, a forgotten `appEntrypoint` surfaces as a raw Vite "Failed to resolve import"
+  naming a module the application author never wrote.
+- `<ThemeToggle>` Astro component. No Vue: one delegated handler for every button on the page.
+- Overlay gate (`e2e/overlays.spec.ts`): an island with `GrTooltip`, `GrSelect` in panel mode
+  and `GrDialog` on `client:load`, asserting that the markup arrives from the server and that
+  the panels open after hydration. Verified by a reverse run — with `client:only="vue"` the
+  server-markup assertions fail.
+
+### Changed
+
+- Toolchain moved to current majors: Astro 7, TypeScript 7, Vite 8, `@types/node` 26,
+  esbuild 0.28, sharp 0.35.
+- Type-checking switched from `vue-tsc` to plain `tsc`. The package has no `.vue` files in
+  its compile scope — `vue-tsc` came from the template it was scaffolded off. It also blocks
+  TypeScript 7, which no longer exports `typescript/lib/tsc`.
+
+### Fixed
+
+- Static builds crashed with `Received protocol 'virtual:'` on any `.vue` island. The cause
+  is upstream: `@astrojs/vue/dist/server.js` starts with
+  `import { setup } from 'virtual:astro:vue-app'`, while the prerender entry imports it as
+  a bare specifier, so Node's ESM loader gets the unresolved virtual id. The integration
+  forces it to be bundled. Not our defect, but ours to work around: otherwise every consumer
+  hits it on their first island.
+
+  The setting goes to `environments.prerender.resolve.noExternal`, not to `ssr.noExternal`:
+  Astro 6 moved the build to Vite's Environments API and prerendering became its own
+  environment, which the legacy key no longer covers.
+
+- Static builds crashed with `ERR_UNKNOWN_FILE_EXTENSION: Unknown file extension ".css"`
+  as soon as an island reached one of the 19 core components (of 78 in 0.35.0) whose built
+  chunk carries a static `import '../styles.css'` — `GrIcon`, `GrSelect`, `GrToaster` among
+  them. Left external in the prerender environment, such a module is loaded by Node, which
+  cannot import CSS. `GrButton` is not one of them, which is why the defect stayed invisible.
+  The `@feugene/granularity*` family is now bundled into the prerender environment too.
+
+- The e2e gate could not fail. `astro preview` daemonises in Astro 7.2.7: it returns within a
+  second and leaves a background server behind. Playwright treats that as "webServer exited
+  early", so the suite only ran when a stale daemon happened to already hold the port — and
+  it then tested whatever build that daemon was started with. Preview is replaced by a
+  dependency-free foreground static server (`e2e/serve.mjs`) and `reuseExistingServer` is off,
+  so every run serves a freshly built `dist`.
