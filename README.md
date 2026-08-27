@@ -97,7 +97,7 @@ components arrive without styles.
 
 |                                              |                                                                            |
 |----------------------------------------------|----------------------------------------------------------------------------|
-| [Recipes](./docs/recipes.md)                 | Seven ways to wire this up — from the theme alone to SSR behind an adapter |
+| [Recipes](./docs/recipes.md)                 | Six ways to wire this up, from a two-component install to server rendering    |
 | [Theme](./docs/theme.md)                     | The three-point contract, writing your own toggle, client-side navigation  |
 | [Strings](./docs/i18n.md)                    | How translations reach the HTML, snapshot modes, your own i18n runtime     |
 | [Islands](./docs/islands.md)                 | Hydration directives, overlays, `client:only`, shared state                |

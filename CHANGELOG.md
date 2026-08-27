@@ -9,12 +9,20 @@ to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Two recipes for choosing components, and an honest one for going without them.**
-  Picking one or two components is what the design system is built around, so it now has
-  its own recipe with measured numbers: `GrButton` alone generates 44 713 B of CSS, plus
-  `GrCard` 45 695 B, all 78 components 113 996 B. The floor — tokens, both themes, the
-  base layer — is about 44 KB and is paid once; the second component costs roughly 1 KB.
-  `components: 'all'` gets a recipe too, with the cases that justify it.
+- **Recipes are ordered by how often they are actually used.** A per-component install
+  leads, as one complete recipe rather than a config split across two: `astro.config.mjs`
+  and `uno.config.ts` together, with the measured cost of a selection — `GrButton` alone
+  generates 44 713 B of CSS, plus `GrCard` 45 695 B, all 78 components 113 996 B. The
+  floor of roughly 44 KB is tokens, both themes and the base layer, paid once; the second
+  component costs about 1 KB. Installing everything follows, with the cases that earn it.
+
+  Two recipes are gone. "The theme alone" and "tokens without components" both described
+  using this package with no components in it, which is not a thing anyone does — the
+  integration exists to put the design system's components on a page.
+
+  "SSR behind an adapter" is now "server-side rendering" and says what an adapter is
+  before assuming it: the package that teaches Astro to run on a particular host, and why
+  `output: 'server'` needs one.
 
 - **Documentation in English and Russian.** `README.md` is now English by default with
   `README.ru.md` beside it, and `docs/` carries six guides in both languages: seven

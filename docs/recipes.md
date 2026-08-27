@@ -2,62 +2,27 @@
 
 **English** · [Русский](./recipes.ru.md)
 
-Nine ways to wire this integration up. They differ in which parts are switched on, not
-in style — pick the one whose constraints match yours.
+Six ways to wire this integration up. They differ in which parts are switched on, not in
+style — pick the one whose constraints match yours.
 
 | # | Recipe | Vue | Strings | UnoCSS |
 | --- | --- | --- | --- | --- |
-| [1](#1-the-theme-alone) | The theme alone | — | — | optional |
-| [2](#2-the-full-setup) | The full setup | ✓ | ✓ | ✓ |
-| [3](#3-one-or-two-components) | One or two components | ✓ | ✓ | ✓ |
-| [4](#4-everything-the-provider-has) | Everything the provider has | ✓ | ✓ | ✓ |
-| [5](#5-tokens-without-components) | Tokens without components | — | — | — |
-| [6](#6-your-own-i18n-runtime) | Your own i18n runtime | ✓ | your own | ✓ |
-| [7](#7-with-satellite-packages) | With satellite packages | ✓ | ✓ | ✓ |
-| [8](#8-multilingual-with-clientrouter) | Multilingual + `ClientRouter` | ✓ | ✓ | ✓ |
-| [9](#9-ssr-behind-an-adapter) | SSR behind an adapter | ✓ | partly | ✓ |
+| [1](#1-per-component-install) | Per-component install | ✓ | ✓ | ✓ |
+| [2](#2-installing-every-component) | Installing every component | ✓ | ✓ | ✓ |
+| [3](#3-your-own-i18n-runtime) | Your own i18n runtime | ✓ | your own | ✓ |
+| [4](#4-with-satellite-packages) | With satellite packages | ✓ | ✓ | ✓ |
+| [5](#5-multilingual-with-clientrouter) | Multilingual + `ClientRouter` | ✓ | ✓ | ✓ |
+| [6](#6-server-side-rendering) | Server-side rendering | ✓ | no | ✓ |
 
 ---
 
-## 1. The theme alone
+## 1. Per-component install
 
-You want a flash-free dark mode and nothing else. No Vue islands, no component
-translations, possibly no design-system components at all.
+The recipe to start from, and the one this design system is built around. You name the
+components you actually put in the markup; everything else follows from that list.
 
-```js
-// astro.config.mjs
-import granularity from '@feugene/astro-granularity'
-import { defineConfig } from 'astro/config'
-
-export default defineConfig({
-  integrations: [
-    granularity({
-      i18n: false,      // no virtual loader module at all
-      resolver: false,  // nothing to auto-import without Vue
-      strict: false,    // do not demand @astrojs/vue and the UnoCSS preset
-    }),
-  ],
-})
-```
-
-**What you get.** One synchronous inline script in `<head>`, about 370 bytes. It reads
-the stored choice, falls back to `prefers-color-scheme`, writes `data-theme` and
-`color-scheme` on `<html>`, and re-applies itself after a client-side navigation.
-
-**What you must supply.** Something that *writes* the theme — see
-[Theme](./theme.md#writing-your-own-toggle). And CSS that reacts to `data-theme`; the
-design system's own tokens do, if you load them.
-
-**Why `strict: false`.** The environment check exists to catch a half-configured Vue +
-UnoCSS setup. Here there is nothing to check, and leaving it on would fail the build over
-an absence you chose deliberately.
-
----
-
-## 2. The full setup
-
-The default, and where most projects start. Vue islands, component strings in the HTML,
-auto-import, environment checks.
+Two files, and both matter — the integration and the stylesheet are configured
+separately.
 
 ```js
 // astro.config.mjs
@@ -80,26 +45,6 @@ export default defineConfig({
   },
 })
 ```
-
-Three things here are load-bearing and easy to drop:
-
-1. **`appEntrypoint`** — without it no i18n instance is ever created, and components fall
-   back to their literal English labels.
-2. **The `i18n` block in Astro's own config** — without it `Astro.currentLocale` is
-   `undefined`, and the route language has to be guessed from the first path segment. See
-   [Strings](./i18n.md#where-the-route-language-comes-from).
-3. **`site`** — needed for canonical URLs, `hreflang` and a sitemap. Not needed by the
-   integration itself, but you will want it.
-
-`uno.config.ts` is in the [README](../README.md#quick-start).
-
----
-
-## 3. One or two components
-
-This is what the design system is built around, and the recipe most projects should
-start from. You name the components you actually put in the markup; the preset works
-out the rest.
 
 ```ts
 // uno.config.ts
@@ -127,11 +72,28 @@ export default defineConfig({
 })
 ```
 
-`astro.config.mjs` is the one from recipe 2 — the integration reads nothing from this
-list. Selection lives entirely in the UnoCSS config.
+That is the whole setup: Vue islands, component strings in the HTML, auto-import,
+environment checks, and exactly two components' worth of CSS.
 
-**What the selection costs.** Generated CSS, measured on this repository with
-`@feugene/granularity@0.36.0` and the preset at `0.13.0`:
+### Three things that are easy to drop and expensive to miss
+
+1. **`appEntrypoint`** — without it no i18n instance is ever created, and components fall
+   back to their literal English labels.
+2. **The `i18n` block in Astro's own config** — without it `Astro.currentLocale` is
+   `undefined`, and the route language has to be guessed from the first path segment. See
+   [Strings](./i18n.md#where-the-route-language-comes-from).
+3. **`site`** — needed for canonical URLs, `hreflang` and a sitemap. The integration does
+   not read it, but you will want it.
+
+The integration reads nothing from the component list; selection lives entirely in
+`uno.config.ts`. The same `options` object must go into both `presetGranularNode` and
+`granularContent` — the first decides what to emit, the second what to scan, and if they
+drift apart components arrive unstyled.
+
+### What the selection costs
+
+Generated CSS, measured on this repository with `@feugene/granularity@0.36.0` and the
+preset at `0.13.0`:
 
 | Selection | CSS | Library files scanned |
 | --- | --- | --- |
@@ -144,6 +106,8 @@ Read the first row as the floor: roughly 44 KB is tokens, both themes, the base 
 and preflights, and it is there no matter how little you select. The second component
 adds about 1 KB. That shape is the point — the price of the design system is paid once,
 and components are cheap after it.
+
+### Working with the list
 
 **Transitive dependencies come along by themselves.** Listing `GrDialog` brings
 `GrModal`; `GrSelect` brings the chips it renders. You list what you write, not what
@@ -179,7 +143,9 @@ into `granular.options.mjs` and import them back — otherwise there is nothing 
 
 ---
 
-## 4. Everything the provider has
+## 2. Installing every component
+
+`astro.config.mjs` is unchanged from recipe 1 — only the selection differs.
 
 ```ts
 const options = {
@@ -206,57 +172,7 @@ is not free either.
 
 ---
 
-## 5. Tokens without components
-
-**The components of this design system require UnoCSS.** There is no configuration that
-changes it, and this recipe does not offer one.
-
-Their markup carries utility classes — 114 distinct ones across the shipped bundles,
-`inline-flex`, `gap-2`, `h-4 w-4 animate-spin`, `absolute`, `rounded-lg` and the rest —
-and something has to turn those into CSS. The preset is that something. The integration
-says so itself when the preset is missing: *"классы из SFC библиотеки не попадут в
-вывод, и компоненты отрисуются без цвета, отступов и размеров."*
-
-`@feugene/granularity/styles.css` does **not** cover them. It carries both themes,
-`tokens.css`, `base.css` and preflights — custom properties and element-level rules.
-Measured against the 114: **it defines none of them.** A `GrButton` under that bundle
-alone gets its colours from `--gr-*` and nothing else — no layout, no size, no radius.
-
-What the bundle is actually for is the other direction: **your own markup on the design
-system's tokens.**
-
-```js
-integrations: [
-  granularity({
-    injectStyleBundle: true,   // themes, tokens, base layer, preflights
-    resolver: false,           // no components to auto-import
-    strict: false,             // the preset check would fail, correctly
-  }),
-]
-```
-
-You get `--gr-bg`, `--gr-fg`, `--gr-primary`, the spacing and radius scales, both themes
-and the theme switch — one shared visual language across projects, styled however you
-like. You do not get a single component.
-
-**Never turn `injectStyleBundle` on next to a working `presetGranularNode`.** The preset
-already emits the themes and tokens as preflights; the bundle would ship a second copy
-of every one of them.
-
-`strict: false` is required and is not a workaround. The environment check looks for a
-preset named `granular-preset` and for `@astrojs/vue`; neither is here on purpose, and
-at the default `strict: true` the build stops on an error that is right about every
-other setup.
-
-Be ready for the log: `strict: false` downgrades those errors from a thrown exception to
-`logger.error`, it does not silence them. The build completes and both messages are
-printed on every run. There is no option that turns the checks off — this recipe is the
-one place where they cry wolf, and the noise is the price of them being reliable
-everywhere else.
-
----
-
-## 6. Your own i18n runtime
+## 3. Your own i18n runtime
 
 The loader format the ecosystem publishes is `fint-i18n`, so the bundled `./app`
 entrypoint wires that. An application with a different runtime does not need it.
@@ -297,7 +213,7 @@ middleware is registered and no snapshot is produced. Building one is your job �
 
 ---
 
-## 7. With satellite packages
+## 4. With satellite packages
 
 Beyond the core, the ecosystem ships packages with their own components and their own
 string blocks.
@@ -336,13 +252,13 @@ resolved by the preset, so listing `GrDialog` brings `GrModal` with it.
 
 ---
 
-## 8. Multilingual with `ClientRouter`
+## 5. Multilingual with `ClientRouter`
 
 `ClientRouter` swaps the document without re-executing modules, and everything living
 outside the markup is reset by that.
 
 ```js
-// astro.config.mjs — as in recipe 2, plus three locales
+// astro.config.mjs — as in recipe 1, plus three locales
 i18n: {
   defaultLocale: 'en',
   locales: ['en', 'ru', 'es'],
@@ -383,9 +299,18 @@ Details and the failure modes are in [Theme](./theme.md#client-side-navigation) 
 
 ---
 
-## 9. SSR behind an adapter
+## 6. Server-side rendering
 
-Everything works except one thing, and that one thing switches itself off.
+By default Astro renders every page once, at build time, and serves the resulting HTML
+files. Server-side rendering does it per request instead — which is what you need for
+pages that depend on who is asking: a signed-in dashboard, a personalised feed, anything
+reading a cookie or a live database.
+
+Astro needs two things for that. `output: 'server'`, and an **adapter** — the package
+that teaches Astro to run on your particular host. `@astrojs/node` for your own server or
+a container, `@astrojs/vercel`, `@astrojs/netlify`, `@astrojs/cloudflare` for those
+platforms. Without an adapter `output: 'server'` fails the build; Astro does not know
+what runtime it is being deployed to.
 
 ```js
 import node from '@astrojs/node'
@@ -406,19 +331,19 @@ export default defineConfig({
 })
 ```
 
-**Strings in the HTML are unavailable under `output: 'server'`.** The page state the
-snapshot is built from is a module-level variable, and requests are handled concurrently
-in one process: one request's `beginPage` would overwrite another's, and a page could be
-served with a neighbour's language. The integration detects this and refuses, printing a
-warning with the fix rather than shipping the race.
+**One feature switches itself off: strings in the HTML.** The page state the snapshot is
+built from is a module-level variable, and a server handles requests concurrently in one
+process — one request's `beginPage` would overwrite another's, and a page could be served
+with a neighbour's language. The integration detects `output: 'server'` and refuses,
+printing a warning with the fix rather than shipping the race.
 
 Setting `ssrStrings: false` acknowledges the decision and removes the warning.
 Translations then arrive the ordinary way — the client fetches the dictionary chunk after
-hydration, exactly as it did before this feature existed.
+hydration, exactly as it did before that feature existed.
 
-The trade-off is honest rather than complete: pages you mark `prerender = true` would be
-safe, but nothing in `astro:config:setup` can tell them apart, so the safe behaviour is
-chosen for all of them.
+The refusal is blunt rather than clever: pages you mark `prerender = true` are rendered
+at build time and would be safe, but nothing in `astro:config:setup` can tell them apart
+from the rest, so the safe behaviour is chosen for all of them.
 
 **Everything else is unaffected**: the theme script, auto-import, the environment check
 and every component behave identically.

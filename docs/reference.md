@@ -38,8 +38,9 @@ custom properties and element-level rules; the components are marked up with uti
 classes, and of the 114 they use it defines none. Under the bundle alone a `GrButton`
 gets its colours and nothing else — no layout, no size, no radius.
 
-Its real use is your own markup on the `--gr-*` tokens, with no components involved —
-[recipe 5](./recipes.md#5-tokens-without-components).
+What it is for is a project that wants the `--gr-*` scale and the theme switch for its
+own markup and uses no components at all. Every setup in [Recipes](./recipes.md) leaves
+it off.
 
 ### Why `i18n.locales` matters
 
@@ -141,7 +142,7 @@ tested against 7 only.
 
 `@astrojs/vue` is optional because a site that only wants the flash-free theme has no
 Vue islands at all. `@feugene/fint-i18n` is optional because an application may bring its
-own i18n runtime — see [recipe 6](./recipes.md#6-your-own-i18n-runtime).
+own i18n runtime — see [recipe 3](./recipes.md#3-your-own-i18n-runtime).
 
 ## What is not published
 
