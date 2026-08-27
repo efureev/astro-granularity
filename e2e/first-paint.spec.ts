@@ -46,6 +46,19 @@ async function captureFrames(page: import('@playwright/test').Page, url: string)
   return frames
 }
 
+/**
+ * Ждёт гидратации серверных островов: `astro-island` снимает атрибут `ssr` сам.
+ *
+ * Без этого тест успевает нажать раньше Vue. Разметка контрола приходит с
+ * сервера и **actionable** для Playwright сразу, а обработчик появляется только
+ * после монтирования — клик уходит в пустоту, и тест падает по таймауту
+ * ожидания того, чего никто не сделал. Под нагрузкой это ловится, на спокойной
+ * машине — нет.
+ */
+async function hydrated(page: import('@playwright/test').Page): Promise<void> {
+  await page.waitForFunction(() => document.querySelectorAll('astro-island[ssr]').length === 0)
+}
+
 test.describe('первый кадр', () => {
   test('на тёмной системе ни один кадр не приезжает светлым', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-dark', 'проект светлой темы проверяет обратное')
@@ -180,6 +193,7 @@ test.describe('клиентская навигация', () => {
       ;(window as unknown as { __docId: string }).__docId = String(Math.random())
     })
     await page.goto('/')
+    await hydrated(page)
     const before = await page.evaluate(() => (window as unknown as { __docId: string }).__docId)
 
     await page.getByTestId('locale-switcher').locator('select').selectOption('ru')
@@ -227,6 +241,7 @@ test.describe('контент из Markdown', () => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
 
     await page.goto('/')
+    await hydrated(page)
     // `Message Queue` — второй сервис в `prod`, у него открытый инцидент.
     await page.getByTestId('service-details').nth(1).click()
     await expect(page.getByRole('dialog')).toBeVisible()
@@ -286,6 +301,7 @@ test.describe('валидация формы', () => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
 
     await page.goto('/ru/settings/')
+    await hydrated(page)
     await page.getByTestId('sub-submit').click()
 
     // «Обязательное поле» — строка ядра, а не приложения.
@@ -299,6 +315,7 @@ test.describe('валидация формы', () => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
 
     await page.goto('/ru/settings/')
+    await hydrated(page)
     await page.getByTestId('sub-email').fill('не-почта')
     await page.getByTestId('sub-submit').click()
 
@@ -416,6 +433,7 @@ test.describe('переключатель языка', () => {
     // не эмитится вовсе, и переключатель молча ничего не делал. Проверяется
     // именно переход, а не значение селекта — значение менялось и на сломанном.
     await page.goto('/settings/')
+    await hydrated(page)
     await page.getByTestId('locale-switcher').locator('select').selectOption('ru')
 
     // Страница сохраняется: выбор языка не должен возвращать на главную.
@@ -427,6 +445,7 @@ test.describe('переключатель языка', () => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
 
     await page.goto('/es/')
+    await hydrated(page)
     const select = page.getByTestId('locale-switcher').locator('select')
 
     await expect(select).toHaveValue('es')
@@ -437,6 +456,7 @@ test.describe('переключатель языка', () => {
 test.describe('остров', () => {
   test('`GrButton` гидратируется и приезжает в цвете', async ({ page }) => {
     await page.goto('/settings/')
+    await hydrated(page)
     const button = page.getByTestId('pref-save')
     await expect(button).toBeVisible()
 

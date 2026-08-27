@@ -20,6 +20,16 @@ import { expect, test } from '@playwright/test'
 /** Подсказка статуса «работает» на английской странице — текст из `ui.ts`. */
 const OPERATIONAL_HINT = 'Responding normally, no error budget spent.'
 
+/**
+ * Ждёт гидратации серверных островов: `astro-island` снимает `ssr` сам.
+ *
+ * Разметка контрола приходит с сервера и actionable сразу, а обработчик
+ * появляется только после монтирования — без ожидания клик уходит в пустоту.
+ */
+async function hydrated(page: import('@playwright/test').Page): Promise<void> {
+  await page.waitForFunction(() => document.querySelectorAll('astro-island[ssr]').length === 0)
+}
+
 test.describe('серверная разметка', () => {
   // Без JS остаётся ровно то, что отдал сервер. `client:only` здесь дал бы
   // пустой контейнер — на этом и держится обратный прогон гейта.
@@ -68,6 +78,7 @@ test.describe('серверная разметка', () => {
 test.describe('интерактив после гидратации', () => {
   test('панель `GrSelect` раскрывается и фильтрует список', async ({ page }) => {
     await page.goto('/')
+    await hydrated(page)
 
     const board = page.getByTestId('service-board')
     // На `prod` три сервиса; на `staging` — два. Ассерт на число строк ловит и
@@ -85,6 +96,7 @@ test.describe('интерактив после гидратации', () => {
 
   test('тултип показывается по наведению', async ({ page }) => {
     await page.goto('/')
+    await hydrated(page)
 
     await page.getByTestId('status-hint').first().hover()
     await expect(page.getByText(OPERATIONAL_HINT).first()).toBeVisible()
@@ -92,6 +104,7 @@ test.describe('интерактив после гидратации', () => {
 
   test('диалог открывается и закрывается по `Escape`', async ({ page }) => {
     await page.goto('/')
+    await hydrated(page)
 
     await page.getByTestId('service-details').first().click()
     await expect(page.getByRole('dialog')).toBeVisible()

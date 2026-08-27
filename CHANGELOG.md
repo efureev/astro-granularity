@@ -31,6 +31,14 @@ to [Semantic Versioning](https://semver.org/).
 
   **Breaking for anyone on `@feugene/granularity` 0.35.x**: the install now reports a peer
   conflict instead of staying silent. The fix is to move the core up.
+
+- **The peer floor on `@feugene/fint-i18n` moves to `>=0.7.0 <1.0.0`**, for the same
+  reason. The SSR pair this package calls — `getSSRState` and `hydrate` — does exist in
+  0.6.0, so nothing was broken before; what changes is the claim. 0.7.0 is the only
+  version the gate has ever run against.
+
+  **Breaking for anyone on `@feugene/fint-i18n` 0.6.x.** The dependency stays optional:
+  an application bringing its own i18n runtime does not install it at all.
 - Development dependencies moved up: `astro` 7.2.8, `vue` 3.5.42, `sharp` 0.35.4,
   `@types/node` 26.4.0, `@feugene/granularity-chrono` 0.10.0 and
   `@feugene/unplugin-granularity` 0.7.0. The last two raise their peer floors to the
