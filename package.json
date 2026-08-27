@@ -1,7 +1,7 @@
 {
   "name": "@feugene/astro-granularity",
   "description": "Astro integration for @feugene/granularity — flash-free theme, styles, auto-import resolver and i18n blocks in one line.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "SEE LICENSE IN LICENSE",
   "author": {
     "name": "Evgeniy Fureev",

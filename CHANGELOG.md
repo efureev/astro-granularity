@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.0] 2026-08-27
+
 ### Fixed
 
 - **The theme no longer disappears on a client-side navigation.** Astro's `ClientRouter`
