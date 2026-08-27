@@ -23,8 +23,14 @@ to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Development now runs against `@feugene/granularity` 0.36.0. The peer range is unchanged
-  (`>=0.35.0 <1.0.0`) — the integration itself does not depend on anything new.
+- **The peer floor on `@feugene/granularity` moves to `>=0.36.0 <1.0.0`.** The gate only
+  ever runs against 0.36.0, and a range claiming support for a version that was never
+  tested is worse than a narrow one: the install succeeds and the breakage surfaces later,
+  in the consumer's app. This follows the same decision the ring made for its own
+  satellites. Nothing in this package's API changed.
+
+  **Breaking for anyone on `@feugene/granularity` 0.35.x**: the install now reports a peer
+  conflict instead of staying silent. The fix is to move the core up.
 - Development dependencies moved up: `astro` 7.2.8, `vue` 3.5.42, `sharp` 0.35.4,
   `@types/node` 26.4.0, `@feugene/granularity-chrono` 0.10.0 and
   `@feugene/unplugin-granularity` 0.7.0. The last two raise their peer floors to the
