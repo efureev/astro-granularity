@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.0] 2026-08-27
+
 ### Added
 
 - **Recipes are ordered by how often they are actually used.** A per-component install
