@@ -25,6 +25,11 @@ to [Semantic Versioning](https://semver.org/).
 
 - Development now runs against `@feugene/granularity` 0.36.0. The peer range is unchanged
   (`>=0.35.0 <1.0.0`) — the integration itself does not depend on anything new.
+- Development dependencies moved up: `astro` 7.2.8, `vue` 3.5.42, `sharp` 0.35.4,
+  `@types/node` 26.4.0, `@feugene/granularity-chrono` 0.10.0 and
+  `@feugene/unplugin-granularity` 0.7.0. The last two raise their peer floors to the
+  versions the ecosystem actually ships, which is what silenced the `incorrect peer`
+  warning the example produced against the current preset.
 
 ## [v0.2.0] 2026-08-27
 
