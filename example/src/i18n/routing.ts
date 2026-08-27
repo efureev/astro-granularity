@@ -9,12 +9,17 @@ import { defaultLocale, isLocale, locales } from './ui'
  * `hreflang` и карта сайта не разъезжались между собой.
  */
 
-export type PageKey = 'index' | 'settings'
-export const pageKeys: readonly PageKey[] = ['index', 'settings']
+export type PageKey = 'index' | 'incidents' | 'settings'
+export const pageKeys: readonly PageKey[] = ['index', 'incidents', 'settings']
 
 export function localePath(locale: Locale, page: PageKey): string {
   const prefix = locale === defaultLocale ? '' : `/${locale}`
-  return page === 'index' ? `${prefix}/` : `${prefix}/settings/`
+  return page === 'index' ? `${prefix}/` : `${prefix}/${page}/`
+}
+
+/** Адрес отчёта об инциденте. Слаг общий для всех языков — различается только путь. */
+export function incidentPath(locale: Locale, slug: string): string {
+  return `${localePath(locale, 'incidents')}${slug}/`
 }
 
 /** Языковые двойники страницы — вход для `hreflang`. */

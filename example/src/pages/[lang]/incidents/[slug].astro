@@ -1,0 +1,19 @@
+---
+import IncidentPage from '../../../components/IncidentPage.astro'
+import { incidentsFor } from '../../../data/incidents'
+import { defaultLocale, type Locale, locales } from '../../../i18n/ui'
+
+export async function getStaticPaths() {
+  const other = locales.filter(locale => locale !== defaultLocale)
+  const perLocale = await Promise.all(other.map(async locale => ({ locale, list: await incidentsFor(locale) })))
+
+  return perLocale.flatMap(({ locale, list }) =>
+    list.map(({ entry, slug }) => ({ params: { lang: locale, slug }, props: { entry } })),
+  )
+}
+
+const { entry } = Astro.props
+const locale = Astro.params.lang as Locale
+---
+
+<IncidentPage locale={locale} entry={entry} />

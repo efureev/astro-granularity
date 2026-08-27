@@ -1,4 +1,6 @@
 ---
+import { ClientRouter } from 'astro:transitions'
+import cover from '../assets/og-cover.png'
 import pkg from '@feugene/granularity/package.json'
 import ThemeToggle from '../components/ThemeToggle.astro'
 import SiteFooter from '../components/SiteFooter.vue'
@@ -29,6 +31,7 @@ const xDefault = new URL(localePath(defaultLocale, 'index'), Astro.site).href
 
 const nav = ([
   { key: 'index', label: t.navOverview },
+  { key: 'incidents', label: t.navIncidents },
   { key: 'settings', label: t.navSettings },
 ] as const).map(item => ({
   label: item.label,
@@ -69,7 +72,12 @@ const localeLinks = locales.map(code => ({
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content={locale} />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content={new URL(cover.src, Astro.site).href} />
+    <meta property="og:image:width" content={String(cover.width)} />
+    <meta property="og:image:height" content={String(cover.height)} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <ClientRouter />
   </head>
 
   <body class="min-h-screen flex flex-col">

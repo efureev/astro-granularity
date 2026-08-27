@@ -12,7 +12,10 @@ export default defineConfig({
   integrations: [
     vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
     UnoCSS({ injectReset: true }),
-    granularity({ i18n: { locales: ['en', 'ru', 'es'] } }),
+    granularity({ i18n: {
+      packages: ['@feugene/granularity-chrono'],
+      locales: ['en', 'ru', 'es'],
+    } }),
   ],
   i18n: {
     defaultLocale: 'en',

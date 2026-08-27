@@ -145,6 +145,222 @@ test.describe('переключатель', () => {
   })
 })
 
+/**
+ * Клиентская навигация `ClientRouter`.
+ *
+ * Подмена документа сбрасывает то, что живёт вне разметки: `swapRootAttributes`
+ * снимает с `<html>` все атрибуты, а модули не переисполняются. Оба гейта
+ * заведены по факту дефектов, найденных на этом переходе.
+ */
+test.describe('клиентская навигация', () => {
+  test('тема переживает подмену документа', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/')
+    await page.locator('[data-gr-theme-toggle]').click()
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+
+    // Переход именно ссылкой: её обрабатывает роутер, а не браузер.
+    await page.locator('nav a', { hasText: 'Settings' }).click()
+    await page.waitForURL(url => url.pathname === '/settings/')
+
+    // `data-theme` восстанавливает подписка скрипта на `astro:after-swap`:
+    // в полученном документе атрибута нет, скрипт на нём не исполнялся.
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
+      .toBe('dark')
+    expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe('dark')
+  })
+
+  test('строки ядра следуют за языком без перезагрузки', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    // Метка живёт в документе: полная перезагрузка её сотрёт, клиентский переход — нет.
+    await page.addInitScript(() => {
+      ;(window as unknown as { __docId: string }).__docId = String(Math.random())
+    })
+    await page.goto('/')
+    const before = await page.evaluate(() => (window as unknown as { __docId: string }).__docId)
+
+    await page.getByTestId('locale-switcher').locator('select').selectOption('ru')
+    await page.waitForURL(url => url.pathname === '/ru/')
+
+    expect(
+      await page.evaluate(() => (window as unknown as { __docId: string }).__docId),
+      'переход оказался жёстким — гейт проверял бы не то',
+    ).toBe(before)
+
+    // Панель после гидратации уезжает в портал, и её содержимое рисует **живой**
+    // компонент. Подменённая разметка ответить за инстанс не может.
+    const panel = page.locator('#gr-portal [data-gr-select-panel], body > [data-gr-select-panel]')
+    await expect(panel.locator('[placeholder="Поиск…"]')).toBeAttached()
+    await expect(page.locator('[aria-label="Очистить"]')).toBeAttached()
+    await expect(page.locator('[aria-label="Clear"]')).toHaveCount(0)
+  })
+})
+
+/**
+ * Страница из Markdown.
+ *
+ * Контент-коллекции — самая ходовая часть Astro, и на них проверяется то, чего
+ * не проверяет ничто другое: работают ли тема, строки и типографика на
+ * разметке, которую породил не наш шаблон.
+ */
+test.describe('контент из Markdown', () => {
+  test('отчёт отрисован, оформлен и на языке страницы', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/incidents/queue-degradation/')
+
+    // Заголовок и текст пришли из тела `.md`, а не из фронтматтера.
+    await expect(page.getByRole('heading', { level: 2, name: 'Что происходит' })).toBeVisible()
+    await expect(page.locator('.prose p').first()).toBeVisible()
+
+    // Типографика применилась: без неё абзац унаследовал бы цвет корня.
+    const colour = await page.locator('.prose p').first().evaluate(el => getComputedStyle(el).color)
+    expect(colour).not.toBe('')
+    const heading = await page.getByRole('heading', { level: 2 }).first().evaluate(el => getComputedStyle(el).fontWeight)
+    expect(Number(heading)).toBeGreaterThanOrEqual(600)
+  })
+
+  test('панель ведёт на отчёт, а диалог не заканчивается датой', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/')
+    // `Message Queue` — второй сервис в `prod`, у него открытый инцидент.
+    await page.getByTestId('service-details').nth(1).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    const link = page.getByTestId('incident-link')
+    await expect(link).toBeVisible()
+    await link.click()
+    await page.waitForURL(url => url.pathname === '/incidents/queue-degradation/')
+  })
+})
+
+/**
+ * Строки пакета-спутника.
+ *
+ * До этого в сборке был один блок — `gr` ядра, и слияние лоадеров с двумя
+ * пакетами не проверялось ничем. `@feugene/granularity-chrono` приводит второй
+ * блок `grChrono`, и `deriveI18nBlocks` обязан вывести оба, не перечисляя их.
+ */
+test.describe('второй пакет строк', () => {
+  test.use({ javaScriptEnabled: false })
+
+  test('строки спутника приезжают на языке страницы', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/incidents/')
+
+    // `Выбор даты` — `grChrono.datePicker.panelLabel`, строка спутника, не ядра.
+    await expect(page.locator('[aria-label="Выбор даты"]').first()).toBeAttached()
+    await expect(page.locator('[aria-label="Choose date"]')).toHaveCount(0)
+  })
+
+  test('снимок несёт блок спутника, а не блок ядра', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/incidents/')
+
+    // Отсечение по страницам: на этой странице строк ядра нет, и тащить блок
+    // `gr` сюда незачем. Обратное означало бы, что режим `used` не работает.
+    const blocks = await page.evaluate(() => {
+      const el = document.querySelector('script[type="application/json"][data-granularity-i18n]')
+      const data = JSON.parse(el!.textContent!) as { messages: Record<string, Record<string, unknown>> }
+      return Object.fromEntries(Object.entries(data.messages).map(([k, v]) => [k, Object.keys(v)]))
+    })
+    expect(blocks).toEqual({ ru: ['grChrono'] })
+  })
+})
+
+/**
+ * Форма с валидацией.
+ *
+ * Тексты ошибок приходят из строк **ядра** (`gr.form.*`), то есть переводятся
+ * механикой пакета. Гейт заодно держит доступность: без `aria-invalid` и связи
+ * ошибки с полем скринридер о проблеме не узнает.
+ */
+test.describe('валидация формы', () => {
+  test('пустая отправка не проходит и объясняет почему', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/settings/')
+    await page.getByTestId('sub-submit').click()
+
+    // «Обязательное поле» — строка ядра, а не приложения.
+    await expect(page.getByText('Обязательное поле').first()).toBeVisible()
+    await expect(page.getByTestId('sub-email')).toHaveAttribute('aria-invalid', 'true')
+    await expect(page.getByTestId('sub-email')).toHaveAttribute('aria-describedby', /.+/)
+    await expect(page.getByTestId('sub-done')).toHaveCount(0)
+  })
+
+  test('неверная почта названа отдельно от пустой', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/settings/')
+    await page.getByTestId('sub-email').fill('не-почта')
+    await page.getByTestId('sub-submit').click()
+
+    await expect(page.getByText('Введите корректный e-mail')).toBeVisible()
+  })
+
+  test('заполненная форма отправляется и сохраняется', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/settings/')
+    await page.getByTestId('sub-email').fill('ops@example.com')
+    await page.getByTestId('sub-services').click()
+    await page.getByRole('listbox').getByText('API Gateway', { exact: true }).click()
+    await page.keyboard.press('Escape')
+    await page.getByTestId('sub-submit').click()
+
+    await expect(page.getByTestId('sub-done')).toBeVisible()
+    expect(await page.evaluate(() => localStorage.getItem('granular-status-subscription')))
+      .toContain('ops@example.com')
+  })
+})
+
+/**
+ * Изображения через `astro:assets`.
+ *
+ * До этого в примере не было ни одной растровой картинки, и сотня в Lighthouse
+ * доставалась даром — портить LCP и CLS было нечему.
+ */
+test.describe('изображения', () => {
+  test('оптимизированы, с размерами и локализованным описанием', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/ru/incidents/queue-degradation/')
+    const img = page.locator('figure img')
+    await expect(img).toBeVisible()
+
+    // Размеры на теге — единственное, что резервирует место до загрузки.
+    // Без них картинка сдвигает весь текст под собой.
+    await expect(img).toHaveAttribute('width', '1200')
+    await expect(img).toHaveAttribute('height', '600')
+
+    // Формат и адаптивность — работа `astro:assets`, а не наша.
+    await expect(img).toHaveAttribute('src', /\.webp$/)
+    const srcset = await img.getAttribute('srcset')
+    expect(srcset?.match(/\d+w/g) ?? []).toHaveLength(3)
+
+    // Описание переведено: `alt` берётся из фронтматтера отчёта, а он на языке страницы.
+    const alt = await img.getAttribute('alt')
+    expect(alt).toContain('Медианное время доставки')
+  })
+
+  test('обложка Open Graph абсолютна и с размерами', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    await page.goto('/')
+    const og = page.locator('meta[property="og:image"]')
+    // Относительный адрес соцсети не разрешат — картинку просто не покажут.
+    await expect(og).toHaveAttribute('content', /^https:\/\/.+\.png$/)
+    await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute('content', '1200')
+  })
+})
+
 test.describe('переключатель языка', () => {
   test('ведёт на ту же страницу в выбранном языке', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')

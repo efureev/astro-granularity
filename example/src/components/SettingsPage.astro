@@ -1,9 +1,10 @@
 ---
-import { environments } from '../data/services'
+import { environments, services } from '../data/services'
 import { strings, type Locale } from '../i18n/ui'
 import BaseLayout from '../layouts/BaseLayout.astro'
 import PreferencesForm from './PreferencesForm.vue'
 import SavedPreferences from './SavedPreferences.vue'
+import SubscribeForm from './SubscribeForm.vue'
 
 interface Props {
   locale: Locale
@@ -29,5 +30,9 @@ const t = strings(locale)
   <div class="grid items-start gap-6 lg:grid-cols-[1fr_18rem]">
     <PreferencesForm client:load t={t} environments={[...environments]} />
     <SavedPreferences client:only="vue" t={t} />
+  </div>
+
+  <div class="mt-6 max-w-2xl">
+    <SubscribeForm client:load t={t} services={[...services]} />
   </div>
 </BaseLayout>

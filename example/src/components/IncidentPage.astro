@@ -1,0 +1,87 @@
+---
+import type { CollectionEntry } from 'astro:content'
+import { Image } from 'astro:assets'
+import { render } from 'astro:content'
+import { localePath } from '../i18n/routing'
+import { strings, type Locale } from '../i18n/ui'
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+interface Props {
+  locale: Locale
+  entry: CollectionEntry<'incidents'>
+}
+
+const { locale, entry } = Astro.props
+const t = strings(locale)
+const { Content } = await render(entry)
+
+// Цвет поддерживает подпись, а не заменяет её: рядом всегда стоит текст.
+const severityClass = {
+  minor: 'text-[var(--gr-info-text)] bg-[var(--gr-info-light)]',
+  major: 'text-[var(--gr-warning-text)] bg-[var(--gr-warning-light)]',
+  critical: 'text-[var(--gr-danger-text)] bg-[var(--gr-danger-light)]',
+}[entry.data.severity]
+
+const severityLabel = {
+  minor: t.severityMinor,
+  major: t.severityMajor,
+  critical: t.severityCritical,
+}[entry.data.severity]
+---
+
+<BaseLayout
+  locale={locale}
+  page="incidents"
+  title={`${entry.data.title} — ${t.siteName}`}
+  description={entry.data.summary}
+>
+  <article class="mx-auto max-w-2xl">
+    <a
+      class="inline-flex items-center gap-1.5 text-sm text-[var(--gr-muted-fg)] no-underline hover:text-[var(--gr-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gr-ring)] rounded-[var(--gr-radius-sm)]"
+      href={localePath(locale, 'incidents')}
+    >
+      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+      {t.incidentBack}
+    </a>
+
+    <h1 class="m-0 mt-4 text-3xl font-semibold tracking-tight text-[var(--gr-fg)]">
+      {entry.data.title}
+    </h1>
+    <p class="m-0 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-[var(--gr-muted-fg)]">
+      <time datetime={entry.data.date.toISOString()}>
+        {new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(entry.data.date)}
+      </time>
+      <span class={`rounded-[var(--gr-radius-full)] px-2 py-0.5 text-xs font-medium ${severityClass}`}>
+        {severityLabel}
+      </span>
+      <span class="rounded-[var(--gr-radius-full)] border border-[var(--gr-brd)] px-2 py-0.5 text-xs">
+        {entry.data.resolved ? t.incidentResolved : t.incidentOpen}
+      </span>
+      <span class="font-mono text-xs">{entry.data.service}</span>
+    </p>
+
+    {entry.data.chart && (
+      <figure class="m-0 mt-8">
+        {/*
+          Размеры берутся из метаданных картинки, поэтому место под неё
+          зарезервировано ещё до загрузки — сдвига макета нет. `alt` обязателен:
+          без него Astro роняет сборку, и это правильно.
+        */}
+        <Image
+          src={entry.data.chart}
+          alt={entry.data.chartAlt ?? entry.data.title}
+          widths={[640, 960, 1200]}
+          sizes="(min-width: 42rem) 42rem, 100vw"
+          loading="eager"
+          class="w-full rounded-[var(--gr-radius-lg)] border border-[var(--gr-brd)]"
+        />
+      </figure>
+    )}
+
+    <!-- Разметку рисует Markdown, поэтому стили — на контейнере: у отдельных
+         элементов классов нет и быть не может. -->
+    <div class="prose mt-8"><Content /></div>
+  </article>
+</BaseLayout>

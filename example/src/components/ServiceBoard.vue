@@ -22,6 +22,8 @@ const props = defineProps<{
   locale: string
   services: Service[]
   environments: Environment[]
+  incidentHrefs: Record<string, string>
+  incidentReadLabel: string
   initialEnv: Environment
 }>()
 
@@ -180,7 +182,14 @@ function openDetails(service: Service) {
         <dd class="m-0 text-right tabular-nums text-[var(--gr-fg)]">{{ whole.format(selected.latency) }} ms</dd>
         <dt class="text-[var(--gr-muted-fg)]">{{ t.dialogLastIncident }}</dt>
         <dd class="m-0 text-right text-[var(--gr-fg)]">
-          {{ selected.lastIncident ? date.format(new Date(selected.lastIncident)) : t.dialogNoIncidents }}
+          <a
+            v-if="selected.lastIncident && incidentHrefs[selected.id]"
+            :href="incidentHrefs[selected.id]"
+            data-testid="incident-link"
+            class="text-[var(--gr-primary-text)] underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gr-ring)] rounded-[var(--gr-radius-sm)]"
+          >{{ date.format(new Date(selected.lastIncident)) }}</a>
+          <template v-else-if="selected.lastIncident">{{ date.format(new Date(selected.lastIncident)) }}</template>
+          <template v-else>{{ t.dialogNoIncidents }}</template>
         </dd>
       </dl>
     </GrDialog>

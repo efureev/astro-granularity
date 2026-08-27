@@ -20,6 +20,12 @@
 
 html {
   scroll-behavior: smooth;
+  /*
+   * Высота липкой шапки (`h-14`). Без этого всё, к чему прокручивают
+   * программно — первая ошибка формы, якорь, ссылка «к содержимому», — уезжает
+   * под шапку, и человек видит середину элемента вместо его начала.
+   */
+  scroll-padding-top: 3.5rem;
 }
 
 html,
@@ -65,4 +71,60 @@ body {
 [data-theme='dark'] .theme-icon-dark,
 html:not([data-theme='dark']) .theme-icon-light {
   display: none;
+}
+
+/**
+ * Типографика Markdown.
+ *
+ * Отдельным блоком, а не пресетом типографики UnoCSS: содержимое здесь простое,
+ * а пресет принёс бы свою шкалу цветов мимо токенов — на тёмной теме это видно
+ * сразу. Все цвета берутся из `--gr-*`, поэтому тема работает даром.
+ */
+.prose {
+  color: var(--gr-fg);
+  line-height: var(--gr-leading-lg, 1.75);
+}
+
+.prose > * + * {
+  margin-top: 1em;
+}
+
+.prose h2 {
+  margin: 2em 0 0.6em;
+  font-size: var(--gr-text-xl, 1.25rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.prose h2:first-child {
+  margin-top: 0;
+}
+
+.prose p {
+  margin: 0;
+  color: var(--gr-muted-fg);
+}
+
+.prose ul,
+.prose ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--gr-muted-fg);
+}
+
+.prose li + li {
+  margin-top: 0.35em;
+}
+
+.prose a {
+  color: var(--gr-primary-text);
+  text-underline-offset: 2px;
+}
+
+.prose code {
+  padding: 0.15em 0.4em;
+  border-radius: var(--gr-radius-sm);
+  background: var(--gr-muted);
+  font-family: var(--gr-font-mono);
+  font-size: 0.9em;
 }

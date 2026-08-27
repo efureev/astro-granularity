@@ -1,4 +1,5 @@
 import { granularContent, presetGranularNode, type PresetGranularNodeOptions } from '@feugene/unocss-preset-granular/node'
+import chronoProvider from '@feugene/granularity-chrono/granular-provider/node'
 import granularityProvider from '@feugene/granularity/granular-provider/node'
 import { defineConfig, presetMini } from 'unocss'
 
@@ -8,14 +9,14 @@ import { defineConfig, presetMini } from 'unocss'
  * приедут бесцветными.
  */
 const options: PresetGranularNodeOptions = {
-  providers: [granularityProvider],
+  providers: [granularityProvider, chronoProvider],
   // Список, а не `'all'`: пресет сам дотягивает транзитивные зависимости
   // (`GrDialog` → `GrModal`, `GrSelect` → чипы), а `'all'` эмитит CSS всех
   // 78 компонентов ядра — сто с лишним килобайт, блокирующих первую отрисовку.
-  components: [{
-    provider: '@feugene/granularity',
-    names: ['GrButton', 'GrCard', 'GrDialog', 'GrTooltip', 'GrSelect'],
-  }],
+  components: [
+    { provider: '@feugene/granularity', names: ['GrButton', 'GrCard', 'GrDialog', 'GrTooltip', 'GrSelect', 'GrForm', 'GrFormField', 'GrInput'] },
+    { provider: '@feugene/granularity-chrono', names: ['GrDatePicker'] },
+  ],
   themes: { names: ['light', 'dark'] },
   layer: 'granular',
 }

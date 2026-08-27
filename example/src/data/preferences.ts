@@ -8,6 +8,9 @@ import type { Environment } from './services'
 
 export const PREFERENCES_KEY = 'granular-status-prefs'
 
+/** Подписка на оповещения — своё хранилище: у неё своя форма и свой сброс. */
+export const SUBSCRIPTION_KEY = 'granular-status-subscription'
+
 /** Событие окна: правку в этой же вкладке `storage` не эмитит. */
 export const PREFERENCES_CHANGED = 'granular-status:preferences'
 

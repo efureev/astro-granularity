@@ -24,6 +24,7 @@ export type UiStrings = {
   navLabel: string
   navOverview: string
   navSettings: string
+  navIncidents: string
   langLabel: string
   themeToLight: string
   themeToDark: string
@@ -94,6 +95,35 @@ export type UiStrings = {
   notFoundTitle: string
   notFoundBody: string
   notFoundAction: string
+
+  incidentsTitle: string
+  incidentsDescription: string
+  incidentsEmpty: string
+  incidentsSince: string
+  incidentsAll: string
+  incidentOpen: string
+  incidentResolved: string
+  incidentService: string
+  incidentRead: string
+  incidentBack: string
+  severityMinor: string
+  severityMajor: string
+  severityCritical: string
+
+  subscribeTitle: string
+  subscribeDescription: string
+  fieldEmail: string
+  fieldEmailHint: string
+  fieldServices: string
+  fieldServicesHint: string
+  fieldFrequency: string
+  freqInstant: string
+  freqDaily: string
+  freqWeekly: string
+  actionSubscribe: string
+  subscribing: string
+  subscribed: string
+  errorPickService: string
 }
 
 export const ui: Record<Locale, UiStrings> = {
@@ -104,6 +134,7 @@ export const ui: Record<Locale, UiStrings> = {
     navLabel: 'Main navigation',
     navOverview: 'Overview',
     navSettings: 'Settings',
+    navIncidents: 'Incidents',
     langLabel: 'Language',
     themeToLight: 'Switch to light theme',
     themeToDark: 'Switch to dark theme',
@@ -174,6 +205,34 @@ export const ui: Record<Locale, UiStrings> = {
     notFoundTitle: 'Page not found',
     notFoundBody: 'The page you asked for does not exist.',
     notFoundAction: 'Go to overview',
+
+    incidentsTitle: 'Incidents',
+    incidentsDescription: 'What broke, what it affected and how it ended.',
+    incidentsEmpty: 'No incidents on record.',
+    incidentsSince: 'Since',
+    incidentsAll: 'All dates',
+    incidentOpen: 'Open',
+    incidentResolved: 'Resolved',
+    incidentService: 'Service',
+    incidentRead: 'Read the report',
+    incidentBack: 'All incidents',
+    severityMinor: 'Minor',
+    severityMajor: 'Major',
+    severityCritical: 'Critical',
+    subscribeTitle: 'Status updates',
+    subscribeDescription: 'Get told when something breaks. The address is kept in this browser and sent nowhere.',
+    fieldEmail: 'Email',
+    fieldEmailHint: 'Where the notice goes.',
+    fieldServices: 'Services',
+    fieldServicesHint: 'Pick at least one.',
+    fieldFrequency: 'How often',
+    freqInstant: 'As it happens',
+    freqDaily: 'Daily digest',
+    freqWeekly: 'Weekly digest',
+    actionSubscribe: 'Subscribe',
+    subscribing: 'Subscribing',
+    subscribed: 'Subscribed. Stored in this browser only.',
+    errorPickService: 'Pick at least one service.',
   },
 
   ru: {
@@ -183,6 +242,7 @@ export const ui: Record<Locale, UiStrings> = {
     navLabel: 'Основная навигация',
     navOverview: 'Обзор',
     navSettings: 'Настройки',
+    navIncidents: 'Инциденты',
     langLabel: 'Язык',
     themeToLight: 'Включить светлую тему',
     themeToDark: 'Включить тёмную тему',
@@ -253,6 +313,34 @@ export const ui: Record<Locale, UiStrings> = {
     notFoundTitle: 'Страница не найдена',
     notFoundBody: 'Страницы, которую вы запросили, не существует.',
     notFoundAction: 'На страницу обзора',
+
+    incidentsTitle: 'Инциденты',
+    incidentsDescription: 'Что сломалось, на что повлияло и чем закончилось.',
+    incidentsEmpty: 'Инцидентов не было.',
+    incidentsSince: 'С даты',
+    incidentsAll: 'Все даты',
+    incidentOpen: 'Открыт',
+    incidentResolved: 'Закрыт',
+    incidentService: 'Сервис',
+    incidentRead: 'Читать отчёт',
+    incidentBack: 'Все инциденты',
+    severityMinor: 'Незначительный',
+    severityMajor: 'Существенный',
+    severityCritical: 'Критический',
+    subscribeTitle: 'Оповещения о статусе',
+    subscribeDescription: 'Узнавать, когда что-то ломается. Адрес хранится в этом браузере и никуда не отправляется.',
+    fieldEmail: 'Почта',
+    fieldEmailHint: 'Куда придёт уведомление.',
+    fieldServices: 'Сервисы',
+    fieldServicesHint: 'Выберите хотя бы один.',
+    fieldFrequency: 'Как часто',
+    freqInstant: 'Сразу',
+    freqDaily: 'Раз в день',
+    freqWeekly: 'Раз в неделю',
+    actionSubscribe: 'Подписаться',
+    subscribing: 'Подписываем',
+    subscribed: 'Подписка оформлена. Хранится только в этом браузере.',
+    errorPickService: 'Выберите хотя бы один сервис.',
   },
 
   es: {
@@ -262,6 +350,7 @@ export const ui: Record<Locale, UiStrings> = {
     navLabel: 'Navegación principal',
     navOverview: 'Resumen',
     navSettings: 'Ajustes',
+    navIncidents: 'Incidencias',
     langLabel: 'Idioma',
     themeToLight: 'Cambiar al tema claro',
     themeToDark: 'Cambiar al tema oscuro',
@@ -332,6 +421,34 @@ export const ui: Record<Locale, UiStrings> = {
     notFoundTitle: 'Página no encontrada',
     notFoundBody: 'La página que has pedido no existe.',
     notFoundAction: 'Ir al resumen',
+
+    incidentsTitle: 'Incidencias',
+    incidentsDescription: 'Qué se rompió, a qué afectó y cómo terminó.',
+    incidentsEmpty: 'Sin incidencias registradas.',
+    incidentsSince: 'Desde',
+    incidentsAll: 'Todas las fechas',
+    incidentOpen: 'Abierta',
+    incidentResolved: 'Resuelta',
+    incidentService: 'Servicio',
+    incidentRead: 'Leer el informe',
+    incidentBack: 'Todas las incidencias',
+    severityMinor: 'Leve',
+    severityMajor: 'Importante',
+    severityCritical: 'Crítica',
+    subscribeTitle: 'Avisos de estado',
+    subscribeDescription: 'Enterarse cuando algo se rompe. La dirección se guarda en este navegador y no se envía a ninguna parte.',
+    fieldEmail: 'Correo',
+    fieldEmailHint: 'Adónde llega el aviso.',
+    fieldServices: 'Servicios',
+    fieldServicesHint: 'Elige al menos uno.',
+    fieldFrequency: 'Con qué frecuencia',
+    freqInstant: 'Al momento',
+    freqDaily: 'Resumen diario',
+    freqWeekly: 'Resumen semanal',
+    actionSubscribe: 'Suscribirse',
+    subscribing: 'Suscribiendo',
+    subscribed: 'Suscripción hecha. Se guarda solo en este navegador.',
+    errorPickService: 'Elige al menos un servicio.'
   },
 }
 

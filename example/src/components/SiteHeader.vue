@@ -5,6 +5,7 @@
  * Разметка обязана быть в HTML: это навигация, её читают поисковики и она нужна
  * без JS. Интерактив здесь один — выбор языка.
  */
+import { navigate } from 'astro:transitions/client'
 import { ref, watch } from 'vue'
 import { GrSelect } from '@feugene/granularity/components/GrSelect'
 
@@ -30,8 +31,11 @@ const selected = ref(props.currentLocale)
  */
 watch(selected, (value) => {
   const next = props.localeLinks.find(link => link.value === value)
-  if (next && next.href !== window.location.pathname)
-    window.location.href = next.href
+  if (!next || next.href === window.location.pathname)
+    return
+  // `navigate` роутера, а не `location.href`: иначе переход был бы жёстким, в
+  // обход `ClientRouter`, и смена языка теряла бы прокрутку и состояние страницы.
+  void navigate(next.href)
 })
 </script>
 
