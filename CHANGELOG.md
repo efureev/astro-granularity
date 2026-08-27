@@ -7,6 +7,24 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@feugene/astro-granularity/client` now resolves.** The subpath was missing from
+  `exports` while `client.d.ts` shipped in the tarball, so the `/// <reference types=… />`
+  the file itself prescribes failed under `moduleResolution: bundler` and `node16` —
+  `exports` closes off everything it does not list. Confirmed as
+  `ERR_PACKAGE_PATH_NOT_EXPORTED` before the fix.
+- **Strings in the HTML no longer arm themselves under `output: 'server'`.** The page
+  state the snapshot is built from is a module-level variable, and an adapter handles
+  requests concurrently in one process: one request's language could reach another's
+  response. The integration now refuses there, the same way it already refused under
+  `build.concurrency > 1`, printing a warning that names the fix. `ssrStrings: false`
+  acknowledges the decision and silences it.
+
+  The trade-off is stated rather than hidden: pages marked `prerender = true` would be
+  safe, but `astro:config:setup` cannot tell them apart, so the safe behaviour applies to
+  all of them.
+
 ## [v0.3.0] 2026-08-27
 
 ### Fixed

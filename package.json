@@ -63,6 +63,9 @@
       "import": "./dist/middleware.js",
       "default": "./dist/middleware.js"
     },
+    "./client": {
+      "types": "./client.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "peerDependencies": {

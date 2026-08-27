@@ -89,7 +89,7 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
         })
 
         if (resolved.i18n !== false && resolved.i18n.ssrStrings !== false)
-          registerSSRStrings(addMiddleware, config.build?.concurrency ?? 1, logger)
+          registerSSRStrings(addMiddleware, config.build?.concurrency ?? 1, config.output, logger)
 
         if (resolved.resolver) {
           const plugin = await loadResolverPlugin(logger)
@@ -125,8 +125,27 @@ type Logger = { warn: (message: string) => void, error: (message: string) => voi
 function registerSSRStrings(
   addMiddleware: (mid: { order: 'pre' | 'post', entrypoint: string }) => void,
   concurrency: number,
+  output: string | undefined,
   logger: Logger,
 ): void {
+  // Под адаптером запросы идут параллельно в одном процессе, а состояние
+  // страницы — модульная переменная: `beginPage` одного запроса затёр бы
+  // состояние другого, и страница получила бы чужой язык. Сборочная
+  // параллельность ниже — та же беда, только на сборке.
+  //
+  // Часть страниц под `output: 'server'` может быть пререндерена, и для них
+  // снимок был бы безопасен. Отличить их в `astro:config:setup` нечем, поэтому
+  // выбирается безопасное поведение, а не выборочное.
+  if (output === 'server') {
+    logger.warn(
+      'строки в HTML выключены: при `output: \'server\'` запросы обрабатываются параллельно '
+      + 'в одном процессе, и язык одного запроса попал бы в ответ другого.\n'
+      + '  Починка: `i18n: { ssrStrings: false }` — предупреждение уйдёт, строки останутся '
+      + 'клиентской догрузкой.',
+    )
+    return
+  }
+
   if (concurrency > 1) {
     logger.warn(
       'строки в HTML выключены: `build.concurrency` больше единицы, и страницы генерируются '
