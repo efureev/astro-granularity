@@ -7,13 +7,26 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Documentation in English and Russian.** `README.md` is now English by default with
+  `README.ru.md` beside it, and `docs/` carries six guides in both languages: seven
+  integration recipes, the theme contract, how strings reach the HTML, islands and
+  hydration, a full reference, and troubleshooting by symptom. Neither the docs nor the
+  example ship in the tarball — `files` stays `dist` and `client.d.ts`.
+
 ### Fixed
 
-- **`@feugene/astro-granularity/client` now resolves.** The subpath was missing from
-  `exports` while `client.d.ts` shipped in the tarball, so the `/// <reference types=… />`
-  the file itself prescribes failed under `moduleResolution: bundler` and `node16` —
-  `exports` closes off everything it does not list. Confirmed as
-  `ERR_PACKAGE_PATH_NOT_EXPORTED` before the fix.
+- **`@feugene/astro-granularity/client` now resolves for TypeScript.** The subpath was
+  missing from `exports` while `client.d.ts` shipped in the tarball, so the
+  `/// <reference types=… />` the file itself prescribes failed under
+  `moduleResolution: bundler` and `node16` — `exports` closes off everything it does not
+  list, and only the legacy `node` resolution, which reaches for the file directly, ever
+  worked. The package was publishing something unreachable.
+
+  The entry carries a `types` condition and nothing else, so `import`ing the subpath at
+  runtime still fails with `ERR_PACKAGE_PATH_NOT_EXPORTED`. That is the intended shape:
+  `client.d.ts` is an ambient declaration, and there is no module behind it to execute.
 - **Strings in the HTML no longer arm themselves under `output: 'server'`.** The page
   state the snapshot is built from is a module-level variable, and an adapter handles
   requests concurrently in one process: one request's language could reach another's

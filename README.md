@@ -1,18 +1,37 @@
 # @feugene/astro-granularity
 
-Интеграция [Astro](https://astro.build) для дизайн-системы
-[`@feugene/granularity`](https://github.com/efureev/granularity).
+**English** · [Русский](./README.ru.md)
 
-Подключает библиотеку одной строкой: ставит тему **до первой отрисовки**,
-регистрирует резолвер авто-импорта и проверяет, что окружение собрано верно —
-падая с внятным сообщением, а не отдавая бесцветную страницу.
+An [Astro](https://astro.build) integration for the
+[`@feugene/granularity`](https://github.com/efureev/granularity) design system.
 
-Требуется **Astro 7**.
+One line in `astro.config.mjs` and the library is wired: the theme is applied
+**before the first paint**, component strings ship inside the HTML, auto-import is
+registered, and a misconfigured environment fails the build with a message that names
+the fix instead of quietly serving an unstyled page.
 
-## Установка
+Requires **Astro 7**.
 
-`@floating-ui/dom` — обязательный peer ядра: без него сборка падает на первом же
-компоненте с всплывающей панелью.
+## What it actually does
+
+Four separate things, each switchable off. An integration you cannot partially disable
+becomes an obstacle on the first project that does not fit its assumptions.
+
+| | What | Off with |
+| --- | --- | --- |
+| **Theme without a flash** | A synchronous inline script in `<head>` resolves the theme the same way the core `useTheme` does, and survives client-side navigation | `injectThemeScript: false` |
+| **Strings in the HTML** | A middleware declares the route locale before the page renders and embeds a snapshot of the translations into `<head>` | `i18n.ssrStrings: false` |
+| **Auto-import** | Registers the `unplugin-vue-components` resolver, so `<GrButton>` needs no import inside `.vue` | `resolver: false` |
+| **Environment check** | Fails the build when `@astrojs/vue` or the UnoCSS preset is missing, naming the exact line to add | `strict: false` |
+
+It does **not** rewrite your config. Missing `granular-preset` in `uno.config.ts` or
+`@astrojs/vue` in `integrations` produces a clear error, never a silent substitution —
+a config that reads one way and builds another costs days to debug.
+
+## Install
+
+`@floating-ui/dom` is a required peer of the core: without it the build fails on the
+first component that has a floating panel.
 
 ```bash
 # yarn
@@ -23,194 +42,79 @@ npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
 pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
 ```
 
-## Подключение
+## Quick start
 
-```ts
+```js
 // astro.config.mjs
-import { defineConfig } from 'astro/config'
 import vue from '@astrojs/vue'
 import granularity from '@feugene/astro-granularity'
+import { defineConfig } from 'astro/config'
+import UnoCSS from 'unocss/astro'
 
 export default defineConfig({
-  integrations: [vue(), granularity()],
+  integrations: [
+    vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
+    UnoCSS({ injectReset: true }),
+    granularity({ i18n: { locales: ['en', 'ru'] } }),
+  ],
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'ru'],
+    routing: { prefixDefaultLocale: false },
+  },
 })
 ```
 
-`@astrojs/vue` обязателен: без него Astro не знает, чем рендерить `.vue`.
-UnoCSS с `presetGranularNode` — тоже; интеграция это проверит.
-
-## Тема без мигания
-
-Главное, что делает пакет. На статической сборке HTML один на всех посетителей,
-поэтому `data-theme` может поставить только код в браузере — и поставить он
-обязан до первого кадра, иначе страница отрисуется светлой и перекрасится
-на глазах.
-
-Инлайн-скрипт в `<head>` (≈300 байт, синхронный) разрешает тему так же, как
-`useTheme` ядра: сохранённый выбор → `prefers-color-scheme` → `defaultTheme`.
-Заодно ставит `color-scheme`, без которого нативные скроллбары, `<select>`
-и поля ввода остаются светлыми на тёмной странице.
-
-## Строки компонентов
-
-Компоненты библиотеки берут строки у [`@feugene/fint-i18n`](https://www.npmjs.com/package/@feugene/fint-i18n).
-Чтобы они появились в островах, укажите точку входа приложения:
-
 ```ts
-integrations: [
-  vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
-  granularity({ i18n: { locales: ['en', 'ru'], packages: ['@feugene/granularity-chrono'] } }),
-]
+// uno.config.ts
+import granularityProvider from '@feugene/granularity/granular-provider/node'
+import { granularContent, presetGranularNode } from '@feugene/unocss-preset-granular/node'
+import { defineConfig, presetMini } from 'unocss'
+
+const options = {
+  providers: [granularityProvider],
+  components: [{ provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] }],
+  themes: { names: ['light', 'dark'] },
+  layer: 'granular',
+}
+
+const content = granularContent(options)
+
+export default defineConfig({
+  content: {
+    ...content,
+    // Your own sources read from disk. Without this, utilities used only inside a
+    // `client:only` island never reach the stylesheet — see docs/islands.md.
+    filesystem: [...(content.filesystem ?? []), 'src/**/*.{vue,astro,ts}'],
+  },
+  presets: [presetMini(), presetGranularNode(options)],
+})
 ```
 
-Экземпляр i18n **один на язык страницы**, а не на остров: острова — независимые корни Vue,
-но граф модулей у них общий. В браузере такой экземпляр всегда один; на сборке их столько,
-сколько языков, — пререндер идёт одним процессом на весь билд.
+Both calls take the **same** options object: the first says what to scan, the second
+what to emit. Let them drift and components arrive without styles.
 
-Явные `locales` включают импорт именованных локалей вместо агрегата: неиспользуемые языки
-отсекаются сборкой. Без них подключается всё, что есть в пакете, включая `es`.
+## Documentation
 
-Имена блоков перечислять не нужно: они лежат внутри самих лоадеров, и модуль выводит их
-сам. Приложение объявляет только состав пакетов и языки.
+| | |
+| --- | --- |
+| [Recipes](./docs/recipes.md) | Seven ways to wire this up — from the theme alone to SSR behind an adapter |
+| [Theme](./docs/theme.md) | The three-point contract, writing your own toggle, client-side navigation |
+| [Strings](./docs/i18n.md) | How translations reach the HTML, snapshot modes, your own i18n runtime |
+| [Islands](./docs/islands.md) | Hydration directives, overlays, `client:only`, shared state |
+| [Reference](./docs/reference.md) | Every option, export, subpath and peer range |
+| [Troubleshooting](./docs/troubleshooting.md) | Symptom → cause → fix |
 
-### Строки приезжают в HTML
+## Example
 
-Статическая страница отдаёт переводы уже в разметке — без них компоненты показали бы свои
-литеральные английские подписи и перещёлкнулись на язык страницы после гидратации острова.
+`example/` holds a working application built on this integration: a service status
+board, three sections across three languages, 22 pages. Header and footer are islands;
+each page carries one island rendered on the server and one that is client-only.
 
-Работает это само: интеграция регистрирует middleware, который сообщает язык маршрута до
-рендера и кладёт снимок строк в `<head>`. Ничего добавлять в страницы не нужно.
+Lighthouse reports **100 for accessibility, best practices and SEO**, and 99–100 for
+performance. Numbers, measurement conditions and what earns them are in
+[`example/README.md`](./example/README.md).
 
-Объём снимка задаёт `i18n.ssrStrings`:
+## License
 
-| Значение | В HTML | Клиент |
-| --- | --- | --- |
-| `'used'` *(по умолчанию)* | ключи, отрисованные на этой странице | догружает словарь фоном |
-| `'full'` | весь словарь языка страницы | словарь не грузит вовсе |
-| `false` | ничего | как без фичи |
-
-`'used'` держит словарь общим кэшируемым файлом и добавляет к странице единицы процентов.
-`'full'` снимает загрузку словаря совсем, но кладёт его копию в каждую страницу: для
-портала это проигрыш, для одиночного лендинга — выигрыш.
-
-Снимок покрывает строки **пакетов** — ядра и спутников из `i18n.packages`. Строки самого
-приложения живут в его собственном i18n и сюда не попадают.
-
-Требования и границы:
-
-- **язык маршрута** берётся из `Astro.currentLocale`. Без блока `i18n` в `astro.config`
-  его нет, и остаётся разбор первого сегмента пути по списку `i18n.locales` — при пустом
-  списке язык всегда будет `defaultLocale`;
-- **`build.concurrency: 1`** (значение Astro по умолчанию). При параллельной генерации
-  страницы перемешали бы языки, поэтому интеграция говорит об этом и фичу не включает;
-- строки, прочитанные через `tm()` — поддерево как данные: пункты меню, колонки таблиц, —
-  в `'used'` не попадают и доезжают фоновой догрузкой. `'full'` берёт блок целиком.
-
-## Свой i18n-рантайм
-
-Формат лоадеров, который публикуют пакеты экосистемы, — `fint-i18n`, поэтому готовая
-обвязка `./app` подключает именно его. Приложению с другим рантаймом она не нужна:
-поставьте `i18n: false`, напишите свой `appEntrypoint` и раздайте адаптер —
-
-```ts
-import { provideGranularityI18n } from '@feugene/astro-granularity/runtime'
-
-export default (app) => provideGranularityI18n(app, myAdapter)
-```
-
-Ядру от адаптера нужны только `t` и, если умеет, `te`. По умолчанию адаптер кладётся и
-под ключ `fint-i18n`: пакеты, не перешедшие на композабл ядра, ищут инстанс только там,
-и без этого молча покажут английский fallback.
-
-## Свой переключатель темы
-
-Интеграция вставляет скрипт, который тему **читает**. Писать её — задача приложения,
-и совпасть надо в трёх местах, иначе выбор потеряется или страница мигнёт:
-
-```js
-localStorage.setItem('gr-theme', theme)          // ключ = опция `themeStorageKey`
-document.documentElement.dataset.theme = theme   // 'light' | 'dark'
-document.documentElement.style.colorScheme = theme
-```
-
-Третья строка не косметика: без неё нативные скроллбары, `<select>` и поля ввода
-останутся светлыми на тёмной странице.
-
-Vue ради одной кнопки поднимать незачем — хватит `<button>` и делегированного
-обработчика на `document`. Готовый пример — `example/src/components/ThemeToggle.astro`:
-там же обработаны кнопки, приезжающие после навигации `ClientRouter`, и бросок
-`localStorage` в приватном режиме Safari.
-
-## Что нужно знать про Astro
-
-Три свойства среды, с которыми вы встретитесь обязательно.
-
-1. **Авто-импорт работает только в `.vue`.** В `.astro`-файлах импорты явные —
-   Astro компилирует их своим парсером, `unplugin-vue-components` туда не достаёт.
-2. **Каждый остров — свой корень Vue.** `provide`/`inject` между двумя островами
-   одной страницы не работает. Общее состояние — через DOM, модульный синглтон
-   (так устроен i18n выше) или внешний стор. Дефолты `<GrConfigProvider>` ставит
-   каждый островной корень сам: app-level путь ядро пока не открывает.
-3. **Оверлеям `client:only` НЕ нужен.** Ни одному компоненту ядра. Телепорт выключен
-   на сервере и на первом клиентском рендере (`useTeleportEnabled` ядра), поэтому панели
-   приезжают с сервера внутри разметки своего компонента и переезжают в `body` уже после
-   монтирования. `client:only` здесь не просто лишний, а вредный: он выбрасывает серверную
-   разметку. Держится гейтом `e2e/overlays.spec.ts`.
-
-   Прятать нужно **императивные вызовы**, а не разметку: `useDialogService().confirm()`,
-   `createLoading()` и `setTheme()` без плагина монтируют хост в `document.body` и на
-   сервере бросают. Приём — `if (typeof window !== 'undefined')` или перенос в `onMounted`.
-
-## Пример
-
-В `example/` — рабочее приложение на этой интеграции: панель состояния сервисов,
-две страницы на трёх языках, шесть маршрутов. Шапка и подвал островами, на
-каждой странице по серверному и клиентскому острову, пять базовых компонентов
-библиотеки.
-
-**Lighthouse — 100 по всем четырём группам на всех шести адресах** (Performance,
-Accessibility, Best Practices, SEO). Производительность на `/ru/` колеблется
-между 99 и 100 от прогона к прогону. Замер: Lighthouse 13.4.1,
-`--preset=desktop`, по собранному `dist`.
-
-Числа, условия замера и то, чем они достигнуты, — в `example/README.md`.
-
-## Опции
-
-| Опция | По умолчанию | Что делает |
-|---|---|---|
-| `defaultTheme` | `'system'` | Тема при отсутствии сохранённого выбора |
-| `themeStorageKey` | `'gr-theme'` | Ключ хранилища; согласован с `useTheme` ядра |
-| `injectThemeScript` | `true` | Вставлять скрипт темы |
-| `injectStyleBundle` | `false` | Импортировать `styles.css`. Нужен **только** без UnoCSS: при работающем `presetGranularNode` стили уже приезжают из `virtual:uno.css`, и импорт бандла их удвоит |
-| `resolver` | `true` | Регистрировать резолвер авто-импорта |
-| `i18n` | `{}` | Строки: `{ packages, locales, ssrStrings }`. `false` — не порождать модуль лоадеров вовсе |
-| `i18n.ssrStrings` | `'used'` | Класть строки в HTML на сборке: `'used'` — только отрисованные ключи, `'full'` — весь словарь языка страницы, `false` — выключить |
-| `strict` | `true` | Ронять сборку на проблемах окружения |
-
-Каждая автоматическая вещь выключается флагом: интеграция, которую нельзя
-частично отключить, становится препятствием на первом же нетипичном проекте.
-
-## Известное
-
-`@astrojs/vue` ломает статическую сборку на любом `.vue`-острове: его `dist/server.js`
-импортирует `virtual:astro:vue-app`, а входная точка пререндера тянет его голым
-спецификатором, и загрузчик Node падает на `Received protocol 'virtual:'`.
-
-Часть компонентов ядра (19 из 78 в 0.35.0, включая `GrIcon`, `GrSelect`, `GrToaster`)
-несёт в собранном чанке статический `import '../styles.css'`. Оставшись внешним в
-пререндере, такой модуль грузится Node, а тот падает `ERR_UNKNOWN_FILE_EXTENSION`.
-`GrButton` в этот список не входит, поэтому дефект не виден, пока остров не заденет один
-из тех девятнадцати.
-
-Оба случая интеграция обходит сама, заставляя vite встроить пакеты в бандл пререндера.
-Отдельных действий не требуется.
-
-Строки в разметку кладёт middleware, а не точка входа: `@astrojs/vue` передаёт в неё
-только `app`, и маршрут страницы ей недоступен. Приложение со своим `appEntrypoint`
-получает язык и снимок через `readServerPageLocale` и `readSnapshotFromDocument` из
-`@feugene/astro-granularity/runtime`, но подключает их само.
-
-## Лицензия
-
-См. [LICENSE](./LICENSE).
+See [LICENSE](./LICENSE).
