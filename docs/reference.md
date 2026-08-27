@@ -15,7 +15,7 @@ granularity({ /* … */ })
 | `defaultTheme` | `'system'` | Theme when nothing is stored: `'light'`, `'dark'` or `'system'` |
 | `themeStorageKey` | `'gr-theme'` | Storage key. Must match the core `useTheme` |
 | `injectThemeScript` | `true` | Emit the inline theme script into `<head>` |
-| `injectStyleBundle` | `false` | Import `@feugene/granularity/styles.css`. Needed **only** without UnoCSS |
+| `injectStyleBundle` | `false` | Import `@feugene/granularity/styles.css` — themes, tokens, base layer. Gives **no** component styles |
 | `resolver` | `true` | Register the auto-import resolver |
 | `i18n` | `{}` | Strings: `{ packages, locales, ssrStrings }`. `false` disables the loader module entirely |
 | `i18n.packages` | `[]` | Satellite packages besides the core. The core is always included |
@@ -30,9 +30,16 @@ typo surfaces during config rather than in the middle of a build.
 ### Why `injectStyleBundle` defaults to `false`
 
 With `presetGranularNode` running, tokens, themes and the base layer already arrive from
-`virtual:uno.css` as preflights. Importing the bundle on top would duplicate all of
-them. Turn it on only for builds without UnoCSS — and accept that component utility
-classes will not exist there.
+`virtual:uno.css` as preflights. Importing the bundle on top would ship a second copy of
+every one of them.
+
+Turning it on is **not** a way to use the components without UnoCSS. The bundle carries
+custom properties and element-level rules; the components are marked up with utility
+classes, and of the 114 they use it defines none. Under the bundle alone a `GrButton`
+gets its colours and nothing else — no layout, no size, no radius.
+
+Its real use is your own markup on the `--gr-*` tokens, with no components involved —
+[recipe 5](./recipes.md#5-tokens-without-components).
 
 ### Why `i18n.locales` matters
 
@@ -134,7 +141,7 @@ tested against 7 only.
 
 `@astrojs/vue` is optional because a site that only wants the flash-free theme has no
 Vue islands at all. `@feugene/fint-i18n` is optional because an application may bring its
-own i18n runtime — see [recipe 4](./recipes.md#4-your-own-i18n-runtime).
+own i18n runtime — see [recipe 6](./recipes.md#6-your-own-i18n-runtime).
 
 ## What is not published
 

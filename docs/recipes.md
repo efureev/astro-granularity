@@ -2,18 +2,20 @@
 
 **English** · [Русский](./recipes.ru.md)
 
-Seven ways to wire this integration up. They differ in which parts are switched on, not
+Nine ways to wire this integration up. They differ in which parts are switched on, not
 in style — pick the one whose constraints match yours.
 
 | # | Recipe | Vue | Strings | UnoCSS |
 | --- | --- | --- | --- | --- |
 | [1](#1-the-theme-alone) | The theme alone | — | — | optional |
 | [2](#2-the-full-setup) | The full setup | ✓ | ✓ | ✓ |
-| [3](#3-without-unocss) | Without UnoCSS | ✓ | ✓ | — |
-| [4](#4-your-own-i18n-runtime) | Your own i18n runtime | ✓ | your own | ✓ |
-| [5](#5-with-satellite-packages) | With satellite packages | ✓ | ✓ | ✓ |
-| [6](#6-multilingual-with-clientrouter) | Multilingual + `ClientRouter` | ✓ | ✓ | ✓ |
-| [7](#7-ssr-behind-an-adapter) | SSR behind an adapter | ✓ | partly | ✓ |
+| [3](#3-one-or-two-components) | One or two components | ✓ | ✓ | ✓ |
+| [4](#4-everything-the-provider-has) | Everything the provider has | ✓ | ✓ | ✓ |
+| [5](#5-tokens-without-components) | Tokens without components | — | — | — |
+| [6](#6-your-own-i18n-runtime) | Your own i18n runtime | ✓ | your own | ✓ |
+| [7](#7-with-satellite-packages) | With satellite packages | ✓ | ✓ | ✓ |
+| [8](#8-multilingual-with-clientrouter) | Multilingual + `ClientRouter` | ✓ | ✓ | ✓ |
+| [9](#9-ssr-behind-an-adapter) | SSR behind an adapter | ✓ | partly | ✓ |
 
 ---
 
@@ -93,33 +95,168 @@ Three things here are load-bearing and easy to drop:
 
 ---
 
-## 3. Without UnoCSS
+## 3. One or two components
 
-A project that already has its own styling pipeline and does not want a second one.
+This is what the design system is built around, and the recipe most projects should
+start from. You name the components you actually put in the markup; the preset works
+out the rest.
+
+```ts
+// uno.config.ts
+import { defineConfig, presetMini } from 'unocss'
+import { granularContent, presetGranularNode } from '@feugene/unocss-preset-granular/node'
+import provider from '@feugene/granularity/granular-provider/node'
+
+const options = {
+  providers: [provider],
+  components: [
+    { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
+  ],
+  themes: { names: ['light', 'dark'] },
+}
+
+export default defineConfig({
+  presets: [presetMini(), presetGranularNode(options)],
+  content: {
+    ...granularContent(options),
+    filesystem: [
+      ...(granularContent(options).filesystem ?? []),
+      'src/**/*.{vue,astro,ts}',
+    ],
+  },
+})
+```
+
+`astro.config.mjs` is the one from recipe 2 — the integration reads nothing from this
+list. Selection lives entirely in the UnoCSS config.
+
+**What the selection costs.** Generated CSS, measured on this repository with
+`@feugene/granularity@0.36.0` and the preset at `0.13.0`:
+
+| Selection | CSS | Library files scanned |
+| --- | --- | --- |
+| `GrButton` | 44 713 B | 2 |
+| `GrButton`, `GrCard` | 45 695 B | 4 |
+| Five, as in `example/` | 66 778 B | 20 |
+| `'all'` | 113 996 B | 158 |
+
+Read the first row as the floor: roughly 44 KB is tokens, both themes, the base layer
+and preflights, and it is there no matter how little you select. The second component
+adds about 1 KB. That shape is the point — the price of the design system is paid once,
+and components are cheap after it.
+
+**Transitive dependencies come along by themselves.** Listing `GrDialog` brings
+`GrModal`; `GrSelect` brings the chips it renders. You list what you write, not what
+those components happen to need — that graph is the provider's business, not yours.
+
+**The qualified form is the safe one.** `{ provider, names }` says which provider a name
+belongs to; a bare string is only allowed inside a component's own `dependencies`. With
+one provider both work, but the qualified form does not change meaning when a second
+provider arrives.
+
+**A name that does not exist fails the build**, and the error lists what the provider
+does have:
+
+```
+ComponentNotFoundError: Component '@feugene/granularity:GrButtn' not found.
+Available in '@feugene/granularity': [GrAlert, GrAutocomplete, …]
+```
+
+**Adding a component to markup without adding it here gives you an unstyled one** — no
+colour, no spacing, no size. Nothing fails; the page just looks wrong. If that is the
+symptom you have, this list is the first place to look.
+
+The preset ships a CLI for exactly these questions:
+
+```bash
+npx granular explain ./granular.options.mjs '@feugene/granularity:GrModal'  # why is it in the build
+npx granular why-css ./granular.options.mjs 'rounded-lg'                    # who pulled this class
+npx granular doctor  ./granular.options.mjs                                 # the whole configuration
+```
+
+It reads a plain module exporting the options, so extract them out of `uno.config.ts`
+into `granular.options.mjs` and import them back — otherwise there is nothing to hand it.
+
+---
+
+## 4. Everything the provider has
+
+```ts
+const options = {
+  providers: [provider],
+  components: 'all',
+  themes: { names: ['light', 'dark'] },
+}
+```
+
+All 78 components of the core, and 113 996 B of CSS against 45 695 B for two — every
+byte of it blocking the first paint, because this is the document's stylesheet.
+
+**Worth it when the set of components genuinely is not known ahead of time**: an admin
+panel assembled from a schema, a page builder, a documentation site rendering arbitrary
+demos. There the alternative is not a smaller list — it is a list that goes stale
+silently, and a component that renders unstyled in production.
+
+**Not worth it as a way to skip writing the list.** A site with a known set of pages
+knows its components; `'all'` there buys a 68 KB blocking stylesheet in exchange for not
+editing one array.
+
+Scanning grows too: 158 library files against 4. That is build time, not runtime, but it
+is not free either.
+
+---
+
+## 5. Tokens without components
+
+**The components of this design system require UnoCSS.** There is no configuration that
+changes it, and this recipe does not offer one.
+
+Their markup carries utility classes — 114 distinct ones across the shipped bundles,
+`inline-flex`, `gap-2`, `h-4 w-4 animate-spin`, `absolute`, `rounded-lg` and the rest —
+and something has to turn those into CSS. The preset is that something. The integration
+says so itself when the preset is missing: *"классы из SFC библиотеки не попадут в
+вывод, и компоненты отрисуются без цвета, отступов и размеров."*
+
+`@feugene/granularity/styles.css` does **not** cover them. It carries both themes,
+`tokens.css`, `base.css` and preflights — custom properties and element-level rules.
+Measured against the 114: **it defines none of them.** A `GrButton` under that bundle
+alone gets its colours from `--gr-*` and nothing else — no layout, no size, no radius.
+
+What the bundle is actually for is the other direction: **your own markup on the design
+system's tokens.**
 
 ```js
 integrations: [
-  vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
   granularity({
-    injectStyleBundle: true,  // pull @feugene/granularity/styles.css
-    strict: false,            // the preset check would fail — there is no preset
-    i18n: { locales: ['en', 'ru'] },
+    injectStyleBundle: true,   // themes, tokens, base layer, preflights
+    resolver: false,           // no components to auto-import
+    strict: false,             // the preset check would fail, correctly
   }),
 ]
 ```
 
-**What you lose.** The utility classes the preset generates for components. The bundle
-carries tokens, themes, the base layer and preflights — not the per-component utilities.
-Components will be styled but some layout classes the design system's own markup uses
-will be missing.
+You get `--gr-bg`, `--gr-fg`, `--gr-primary`, the spacing and radius scales, both themes
+and the theme switch — one shared visual language across projects, styled however you
+like. You do not get a single component.
 
-**Never turn `injectStyleBundle` on together with a working `presetGranularNode`.** The
-preset already emits tokens and both themes as preflights; the bundle would duplicate
-every one of them.
+**Never turn `injectStyleBundle` on next to a working `presetGranularNode`.** The preset
+already emits the themes and tokens as preflights; the bundle would ship a second copy
+of every one of them.
+
+`strict: false` is required and is not a workaround. The environment check looks for a
+preset named `granular-preset` and for `@astrojs/vue`; neither is here on purpose, and
+at the default `strict: true` the build stops on an error that is right about every
+other setup.
+
+Be ready for the log: `strict: false` downgrades those errors from a thrown exception to
+`logger.error`, it does not silence them. The build completes and both messages are
+printed on every run. There is no option that turns the checks off — this recipe is the
+one place where they cry wolf, and the noise is the price of them being reliable
+everywhere else.
 
 ---
 
-## 4. Your own i18n runtime
+## 6. Your own i18n runtime
 
 The loader format the ecosystem publishes is `fint-i18n`, so the bundled `./app`
 entrypoint wires that. An application with a different runtime does not need it.
@@ -160,7 +297,7 @@ middleware is registered and no snapshot is produced. Building one is your job �
 
 ---
 
-## 5. With satellite packages
+## 7. With satellite packages
 
 Beyond the core, the ecosystem ships packages with their own components and their own
 string blocks.
@@ -199,7 +336,7 @@ resolved by the preset, so listing `GrDialog` brings `GrModal` with it.
 
 ---
 
-## 6. Multilingual with `ClientRouter`
+## 8. Multilingual with `ClientRouter`
 
 `ClientRouter` swaps the document without re-executing modules, and everything living
 outside the markup is reset by that.
@@ -246,7 +383,7 @@ Details and the failure modes are in [Theme](./theme.md#client-side-navigation) 
 
 ---
 
-## 7. SSR behind an adapter
+## 9. SSR behind an adapter
 
 Everything works except one thing, and that one thing switches itself off.
 

@@ -9,6 +9,13 @@ to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Two recipes for choosing components, and an honest one for going without them.**
+  Picking one or two components is what the design system is built around, so it now has
+  its own recipe with measured numbers: `GrButton` alone generates 44 713 B of CSS, plus
+  `GrCard` 45 695 B, all 78 components 113 996 B. The floor — tokens, both themes, the
+  base layer — is about 44 KB and is paid once; the second component costs roughly 1 KB.
+  `components: 'all'` gets a recipe too, with the cases that justify it.
+
 - **Documentation in English and Russian.** `README.md` is now English by default with
   `README.ru.md` beside it, and `docs/` carries six guides in both languages: seven
   integration recipes, the theme contract, how strings reach the HTML, islands and
@@ -16,6 +23,18 @@ to [Semantic Versioning](https://semver.org/).
   example ship in the tarball — `files` stays `dist` and `client.d.ts`.
 
 ### Fixed
+
+- **The “without UnoCSS” recipe promised something that does not work.** It read as
+  though `injectStyleBundle: true` let the components run with no UnoCSS. It does not:
+  their markup carries 114 distinct utility classes and `styles.css` defines none of them
+  — it is custom properties and element-level rules. Under that bundle alone a `GrButton`
+  gets colours and nothing else: no layout, no size, no radius. The integration's own
+  environment check says as much when the preset is missing.
+
+  The recipe is now “tokens without components”, which is what the bundle is actually
+  for: your own markup on the `--gr-*` scale, with the theme switch included and no
+  components involved. `docs/reference.md` carried the same soft wording and is corrected
+  with it.
 
 - **`@feugene/astro-granularity/client` now resolves for TypeScript.** The subpath was
   missing from `exports` while `client.d.ts` shipped in the tarball, so the
