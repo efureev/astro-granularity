@@ -7,6 +7,25 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The theme no longer disappears on a client-side navigation.** Astro's `ClientRouter`
+  strips every attribute off `<html>` and copies them from the fetched document, where
+  `data-theme` does not exist — the inline script never ran on it. The script now applies
+  the theme from a named function and subscribes that function to `astro:after-swap`, on
+  `document` rather than `window`, because Astro dispatches a non-bubbling event. The
+  subscription sits under its own `try/catch`: an exception in `<head>` halts document
+  parsing, and the existing gate caught the first attempt that did not.
+- **Component strings no longer stay in the first page's language after a client-side
+  navigation.** The snapshot was read once at module scope, and `ClientRouter` swaps the
+  whole `<head>` without re-executing modules. It is now read on every instance creation.
+
+
+### Changed
+
+- Development now runs against `@feugene/granularity` 0.36.0. The peer range is unchanged
+  (`>=0.35.0 <1.0.0`) — the integration itself does not depend on anything new.
+
 ## [v0.2.0] 2026-08-27
 
 ### Changed

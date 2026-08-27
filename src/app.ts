@@ -22,8 +22,16 @@ type FintI18n = ReturnType<typeof createFintI18n>
  */
 const isServer = typeof document === 'undefined'
 
-/** Снимок читается однажды: разметка за время жизни страницы не меняется. */
-const snapshot = readSnapshotFromDocument()
+/**
+ * Снимок читается на каждое создание инстанса, а не однажды на модуль.
+ *
+ * `ClientRouter` подменяет `<head>` целиком, но модуль при этом не
+ * переисполняется. Прочитанный один раз снимок означал бы, что после
+ * клиентского перехода строки остаются на языке первой открытой страницы.
+ */
+function currentSnapshot(): GranularityI18nSnapshot | null {
+  return isServer ? null : readSnapshotFromDocument()
+}
 
 /**
  * Экземпляр на локаль, а не один на модуль.
@@ -48,12 +56,13 @@ const instances = new Map<string, FintI18n>()
  * В браузере снимок важнее `<html lang>`: он запись о том, чем рисовал сервер, и
  * потому не расходится с ним на региональных тегах вроде `lang="ru-RU"`.
  */
-function resolveLocale(): string {
+function resolveLocale(snapshot: GranularityI18nSnapshot | null): string {
   return readServerPageLocale() ?? snapshot?.locale ?? readPageLocale(defaultLocale)
 }
 
 export function getGranularityI18n(): FintI18n {
-  const locale = resolveLocale()
+  const snapshot = currentSnapshot()
+  const locale = resolveLocale(snapshot)
   const existing = instances.get(locale)
   if (existing)
     return existing

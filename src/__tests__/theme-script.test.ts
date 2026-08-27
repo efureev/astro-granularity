@@ -21,7 +21,9 @@ type Env = {
  */
 function run(script: string, env: Env = {}) {
   const root = { dataset: {} as Record<string, unknown>, style: {} as Record<string, unknown> }
-  const document = { documentElement: root }
+  // Подписка принимается, но никуда не сохраняется: остальным тестам событие
+  // не нужно, а её отсутствие роняло бы их все.
+  const document = { documentElement: root, addEventListener() {} }
   const localStorage = {
     getItem(_key: string) {
       if (env.storageThrows)
@@ -87,6 +89,38 @@ describe('скрипт темы', () => {
     const script = createThemeScript('admin-theme', 'system')
     expect(script).toContain('"admin-theme"')
     expect(run(script, { stored: 'dark' }).dataset.theme).toBe('dark')
+  })
+
+  it('восстанавливает тему по `astro:after-swap` — иначе она теряется на клиентском переходе', () => {
+    const root = { dataset: {} as Record<string, unknown>, style: {} as Record<string, unknown> }
+    const swapListeners: Array<() => void> = []
+    const document = {
+      documentElement: root,
+      addEventListener(type: string, fn: () => void) {
+        if (type === 'astro:after-swap')
+          swapListeners.push(fn)
+      },
+    }
+    const localStorage = { getItem: () => 'dark' }
+    const matchMedia = () => ({ matches: false })
+
+    // eslint-disable-next-line no-new-func
+    new Function('document', 'localStorage', 'matchMedia', createThemeScript(DEFAULT_STORAGE_KEY, 'system'))(
+      document,
+      localStorage,
+      matchMedia,
+    )
+    expect(root.dataset.theme).toBe('dark')
+
+    // `swapRootAttributes` снимает с `<html>` все атрибуты и копирует их из
+    // полученного документа, где `data-theme` нет: скрипт на нём не исполнялся.
+    root.dataset = {}
+    root.style = {}
+    expect(swapListeners, 'скрипт не подписался на `astro:after-swap`').toHaveLength(1)
+
+    swapListeners.forEach(fn => fn())
+    expect(root.dataset.theme).toBe('dark')
+    expect(root.style.colorScheme).toBe('dark')
   })
 
   it('укладывается в бюджет', () => {

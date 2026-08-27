@@ -44,9 +44,21 @@ export function createThemeScript(storageKey: string, defaultTheme: DefaultTheme
   // Внешний try/catch: без него исключение в `<head>` останавливает разбор
   // документа, и страница не отрисуется вообще. Внутренний — только под
   // `localStorage`: в приватном режиме Safari он бросает на чтении.
-  return `(function(){try{var k=${key},s=null;try{s=localStorage.getItem(k)}catch(e){}`
+  //
+  // Применение вынесено в функцию и подписано на `astro:after-swap`:
+  // `ClientRouter` снимает с `<html>` все атрибуты и копирует их из полученного
+  // документа, а там `data-theme` нет — скрипт на нём не исполнялся. Без
+  // подписки тема терялась бы на каждом клиентском переходе.
+  //
+  // Слушатель на `document`, а не на `window`: Astro шлёт событие как
+  // `document.dispatchEvent(new Event(name))`, а такое не всплывает.
+  return `(function(){function a(){try{var k=${key},s=null;`
+    + `try{s=localStorage.getItem(k)}catch(e){}`
     + `var t=s==="light"||s==="dark"?s:${fallback},r=document.documentElement;`
-    + `r.dataset.theme=t;r.style.colorScheme=t}catch(e){}})()`
+    + `r.dataset.theme=t;r.style.colorScheme=t}catch(e){}}`
+    // Подписка тоже под `try`: без него отсутствующий `document` бросил бы
+    // наружу, а исключение в `<head>` останавливает разбор документа.
+    + `a();try{document.addEventListener("astro:after-swap",a)}catch(e){}})()`
 }
 
 export function assertThemeScriptBudget(script: string): void {
