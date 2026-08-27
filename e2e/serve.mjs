@@ -51,8 +51,10 @@ function resolveFile(urlPath) {
     return statSync(target).isDirectory() ? join(target, 'index.html') : target
   }
   catch {
-    // Astro пишет маршруты и как `/ru/index.html`, и как `/ru.html`.
-    const asHtml = `${target}.html`
+    // Astro пишет маршруты и как `/ru/index.html`, и как `/ru.html`. Коды
+    // состояния (`404`, `500`) — всегда плоским файлом, поэтому конечный слеш
+    // снимается: иначе `/500/` искало бы `dist/500/.html` и не находило ничего.
+    const asHtml = `${target.replace(/[/\\]+$/, '')}.html`
     try {
       statSync(asHtml)
       return asHtml

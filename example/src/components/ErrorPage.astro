@@ -1,0 +1,110 @@
+---
+import { GrButton } from '@feugene/granularity/components/GrButton'
+import { localePath } from '../i18n/routing'
+import { defaultLocale, strings } from '../i18n/ui'
+import BaseLayout from '../layouts/BaseLayout.astro'
+
+interface Props {
+  code: 404 | 401 | 403 | 500
+}
+
+const { code } = Astro.props
+
+/**
+ * Язык здесь основной и другим быть не может: страница отдаётся на любой
+ * путь, в том числе на несуществующий, а у такого пути языка нет.
+ */
+const t = strings(defaultLocale)
+
+/**
+ * Код — это состояние, и подан он как состояние сервиса на панели: точка тона,
+ * подпись, моноширинное число. Приложение про статусы, и страница ошибки
+ * говорит на его языке, а не на языке чужого шаблона.
+ */
+const byCode = {
+  404: { tone: 'slate', title: t.err404Title, body: t.err404Body, incidents: false },
+  401: { tone: 'info', title: t.err401Title, body: t.err401Body, incidents: false },
+  403: { tone: 'warning', title: t.err403Title, body: t.err403Body, incidents: false },
+  500: { tone: 'danger', title: t.err500Title, body: t.err500Body, incidents: true },
+} as const
+
+const { tone, title, body, incidents } = byCode[code]
+
+const dotClass = {
+  slate: 'bg-[var(--gr-slate-400)]',
+  info: 'bg-[var(--gr-info)]',
+  warning: 'bg-[var(--gr-warning)]',
+  danger: 'bg-[var(--gr-danger)]',
+}[tone]
+
+const textClass = {
+  slate: 'text-[var(--gr-muted-fg)]',
+  info: 'text-[var(--gr-info-text)]',
+  warning: 'text-[var(--gr-warning-text)]',
+  danger: 'text-[var(--gr-danger-text)]',
+}[tone]
+
+/**
+ * Тот же мотив, что у графика в отчёте: линия сигнала. На `500` она обрывается —
+ * это и есть разница между «не нашли» и «сломалось».
+ */
+const signal = code === 500
+  // Линия обрывается на полпути — это и есть разница между «не нашли» и «сломалось».
+  ? 'M0,16 L60,16 L76,5 L92,27 L108,16 L150,16'
+  : 'M0,16 L44,16 L60,7 L76,25 L92,11 L108,16 L240,16'
+---
+
+<BaseLayout
+  offRoute
+  locale={defaultLocale}
+  page="index"
+  title={`${code} — ${title}`}
+  description={body}
+>
+  <div class="grid max-w-2xl justify-items-start gap-6 py-10 lg:py-16">
+    <!--
+      Код подан крупно и моноширинно — тем же приёмом, что версия в подвале и
+      среда в списке сервисов. Точка тона слева повторяет строку состояния
+      сервиса: приложение про статусы, и ошибка тут такой же статус.
+    -->
+    <div class="grid gap-3">
+      <p class="m-0 flex items-center gap-2.5 text-sm">
+        <span class={`h-2 w-2 shrink-0 rounded-[var(--gr-radius-full)] ${dotClass}`} aria-hidden="true" />
+        <span class={`font-medium ${textClass}`}>{t.errStatusLabel}</span>
+      </p>
+      <p class={`m-0 font-mono text-6xl font-semibold leading-none tracking-tight lg:text-7xl ${textClass}`}>
+        {code}
+      </p>
+      <svg
+        class="h-8 w-full max-w-[240px] text-[var(--gr-brd)]"
+        viewBox="0 0 240 32"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d={signal} />
+        {code === 500 && <circle cx="150" cy="16" r="3" fill="currentColor" stroke="none" />}
+      </svg>
+    </div>
+
+    <div class="grid gap-3">
+      <h1 class="m-0 text-3xl font-semibold tracking-tight text-[var(--gr-fg)] lg:text-4xl">
+        {title}
+      </h1>
+      <p class="m-0 max-w-prose text-[var(--gr-muted-fg)]">{body}</p>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <GrButton as="a" href={localePath(defaultLocale, 'index')}>{t.errBackHome}</GrButton>
+      {incidents && (
+        <GrButton as="a" variant="outline" href={localePath(defaultLocale, 'incidents')}>
+          {t.errSeeIncidents}
+        </GrButton>
+      )}
+    </div>
+  </div>
+
+</BaseLayout>

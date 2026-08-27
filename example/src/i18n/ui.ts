@@ -92,9 +92,17 @@ export type UiStrings = {
   versionHint: string
   backToTop: string
 
-  notFoundTitle: string
-  notFoundBody: string
-  notFoundAction: string
+  errBackHome: string
+  errSeeIncidents: string
+  errStatusLabel: string
+  err404Title: string
+  err404Body: string
+  err401Title: string
+  err401Body: string
+  err403Title: string
+  err403Body: string
+  err500Title: string
+  err500Body: string
 
   incidentsTitle: string
   incidentsDescription: string
@@ -202,9 +210,17 @@ export const ui: Record<Locale, UiStrings> = {
     versionHint: 'Version of the design system this demo is built against.',
     backToTop: 'Back to top',
 
-    notFoundTitle: 'Page not found',
-    notFoundBody: 'The page you asked for does not exist.',
-    notFoundAction: 'Go to overview',
+    errBackHome: 'Go to overview',
+    errSeeIncidents: 'Check incidents',
+    errStatusLabel: 'Response',
+    err404Title: 'No such page',
+    err404Body: 'Nothing lives at this address. The report may have been removed, or the link mistyped.',
+    err401Title: 'Sign in first',
+    err401Body: 'This page is available after signing in. Sign in and try again.',
+    err403Title: 'Not allowed',
+    err403Body: 'The account exists, but it has no rights to this page. Ask an owner to grant them.',
+    err500Title: 'That one is on us',
+    err500Body: 'Something broke on our side, not yours. The failure is recorded — the incidents page says what is known so far.',
 
     incidentsTitle: 'Incidents',
     incidentsDescription: 'What broke, what it affected and how it ended.',
@@ -310,9 +326,17 @@ export const ui: Record<Locale, UiStrings> = {
     versionHint: 'Версия дизайн-системы, под которую собрано это демо.',
     backToTop: 'Наверх',
 
-    notFoundTitle: 'Страница не найдена',
-    notFoundBody: 'Страницы, которую вы запросили, не существует.',
-    notFoundAction: 'На страницу обзора',
+    errBackHome: 'На страницу обзора',
+    errSeeIncidents: 'Посмотреть инциденты',
+    errStatusLabel: 'Ответ',
+    err404Title: 'Такой страницы нет',
+    err404Body: 'По этому адресу ничего нет. Возможно, отчёт удалили или в ссылке опечатка.',
+    err401Title: 'Сначала войдите',
+    err401Body: 'Страница доступна после входа. Войдите и попробуйте снова.',
+    err403Title: 'Доступ закрыт',
+    err403Body: 'Учётная запись есть, но прав на эту страницу у неё нет. Попросите владельца их выдать.',
+    err500Title: 'Это сломалось у нас',
+    err500Body: 'Ошибка на нашей стороне, а не на вашей. Сбой записан — на странице инцидентов видно, что о нём известно.',
 
     incidentsTitle: 'Инциденты',
     incidentsDescription: 'Что сломалось, на что повлияло и чем закончилось.',
@@ -418,9 +442,17 @@ export const ui: Record<Locale, UiStrings> = {
     versionHint: 'Versión del sistema de diseño con la que está construida esta demo.',
     backToTop: 'Volver arriba',
 
-    notFoundTitle: 'Página no encontrada',
-    notFoundBody: 'La página que has pedido no existe.',
-    notFoundAction: 'Ir al resumen',
+    errBackHome: 'Ir al resumen',
+    errSeeIncidents: 'Ver incidencias',
+    errStatusLabel: 'Respuesta',
+    err404Title: 'No hay tal página',
+    err404Body: 'En esta dirección no hay nada. Puede que el informe se haya borrado o que el enlace tenga una errata.',
+    err401Title: 'Inicia sesión primero',
+    err401Body: 'Esta página está disponible tras iniciar sesión. Entra e inténtalo de nuevo.',
+    err403Title: 'Acceso denegado',
+    err403Body: 'La cuenta existe, pero no tiene permisos sobre esta página. Pide a un propietario que los conceda.',
+    err500Title: 'Esto se ha roto en nuestro lado',
+    err500Body: 'El fallo es nuestro, no tuyo. Queda registrado: la página de incidencias cuenta lo que se sabe.',
 
     incidentsTitle: 'Incidencias',
     incidentsDescription: 'Qué se rompió, a qué afectó y cómo terminó.',

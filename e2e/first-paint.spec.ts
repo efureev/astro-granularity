@@ -361,6 +361,53 @@ test.describe('изображения', () => {
   })
 })
 
+/**
+ * Страницы ошибок.
+ *
+ * Только `/404` и `/500` Astro считает особыми и пишет плоскими файлами
+ * (`STATUS_CODE_PAGES`); `/401` и `/403` — обычные страницы, и подставлять их
+ * обязан хостинг. Гейт держит разметку всех четырёх независимо от того, кто их
+ * отдаёт.
+ */
+test.describe('страницы ошибок', () => {
+  const CODES = [
+    { url: '/no-such-page', code: '404', incidents: false },
+    { url: '/401/', code: '401', incidents: false },
+    { url: '/403/', code: '403', incidents: false },
+    { url: '/500', code: '500', incidents: true },
+  ] as const
+
+  for (const { url, code, incidents } of CODES) {
+    test(`${code} — код, объяснение и выход`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+      await page.goto(url)
+
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await expect(page.locator('main')).toContainText(code)
+      // Выход обязателен: страница ошибки без ссылки наружу — тупик.
+      await expect(page.getByRole('link', { name: 'Go to overview' })).toBeVisible()
+
+      // На `500` уместна ссылка в инциденты — сбой уже записан. На остальных нет.
+      await expect(page.getByRole('link', { name: 'Check incidents' }))
+        .toHaveCount(incidents ? 1 : 0)
+
+      // Индексировать их не надо, и текущим пункт меню не помечается.
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow')
+      await expect(page.locator('nav a[aria-current]')).toHaveCount(0)
+    })
+  }
+
+  test('несуществующий путь отдаёт 404 и статус 404', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
+
+    // Статус несущий: страница с текстом «не найдено» и кодом 200 обманывает
+    // и поисковик, и клиента.
+    const response = await page.goto('/no-such-page')
+    expect(response?.status()).toBe(404)
+  })
+})
+
 test.describe('переключатель языка', () => {
   test('ведёт на ту же страницу в выбранном языке', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
