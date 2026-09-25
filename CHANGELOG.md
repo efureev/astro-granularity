@@ -7,6 +7,19 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The dev server no longer crashes with `ERR_UNKNOWN_FILE_EXTENSION: ".css"`.** The
+  workaround from 0.1.0 — bundling `@feugene/granularity*` so that Node never loads a
+  chunk with a static `import '../styles.css'` — was applied to the `prerender`
+  environment only. `astro dev` renders through `ssr`, and so does a build under an
+  adapter (`output: 'server'`), so the first page reaching `GrIcon`, `GrSelect` or any of
+  their kind fell over with the exact error the package claims to have fixed. The list now
+  goes to both environments, the way `@astrojs/vue` does it.
+
+  It stayed invisible because the package's own gate builds and serves `dist`: nothing
+  here ever ran `astro dev`. A unit test now pins both environments.
+
 ## [v0.4.0] 2026-08-27
 
 ### Added

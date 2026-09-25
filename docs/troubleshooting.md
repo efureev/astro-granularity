@@ -88,17 +88,19 @@ persist. Wrap writes in `try/catch`; the integration's script already does.
 `virtual:astro:vue-app`, and the prerender entrypoint pulls it by a bare specifier.
 
 The integration works around this itself by forcing Vite to inline the package into the
-prerender bundle. No action needed — but if you override `vite.environments.prerender`,
-keep `noExternal` intact.
+prerender bundle. No action needed — but if you override `vite.environments.prerender`
+or `vite.environments.ssr`, keep `noExternal` intact.
 
-## Build fails: `ERR_UNKNOWN_FILE_EXTENSION: ".css"`
+## Build or dev server fails: `ERR_UNKNOWN_FILE_EXTENSION: ".css"`
 
 Part of the core's components carry a static `import '../styles.css'` in their built
-chunk. Left external during prerender, such a module is loaded by Node, which does not
-know `.css`.
+chunk. Left external, such a module is loaded by Node, which does not know `.css`. In a
+static build that is the `prerender` environment; in `astro dev` and under an adapter it
+is `ssr`.
 
-Also worked around by the integration. `GrButton` is not among those components, which is
-why the defect stays invisible until an island touches one that is.
+Also worked around by the integration, in both environments. `GrButton` is not among
+those components, which is why the defect stays invisible until a page touches one that
+is.
 
 ## Build fails: `Rolldown failed to resolve import "@floating-ui/dom"`
 

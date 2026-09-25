@@ -38,7 +38,8 @@ async function loadPresetNames(root: string | URL): Promise<string[] | null> {
 }
 
 /**
- * Пакеты, чьи серверные входы обязаны быть встроены в бандл.
+ * Пакеты, чьи серверные входы обязаны быть встроены в бандл — в обоих серверных
+ * окружениях Vite: `ssr` (dev-сервер, сборка под адаптером) и `prerender` (статика).
  *
  * `@astrojs/vue` попал сюда не за компанию: его `dist/server.js` первой же
  * строкой делает `import { setup } from 'virtual:astro:vue-app'`, а входная
@@ -52,6 +53,8 @@ async function loadPresetNames(root: string | URL): Promise<string[] | null> {
  * Оставшись внешним, такой модуль грузится Node, а тот падает
  * `ERR_UNKNOWN_FILE_EXTENSION` на `.css`. `GrButton` в этот список не входит —
  * поэтому дефект не виден, пока остров не заденет один из тех девятнадцати.
+ * В dev-сервере всё то же самое, только окружение другое — `ssr` вместо
+ * `prerender`; e2e пакета dev не поднимает, и там это не ловится.
  */
 const NO_EXTERNAL = ['@feugene/astro-granularity', '@astrojs/vue', /^@feugene\/granularity/]
 
@@ -80,9 +83,13 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
             plugins: [createVirtualI18nPlugin(resolved.i18n === false
               ? false
               : { ...resolved.i18n, defaultLocale: config.i18n?.defaultLocale ?? 'en' })],
-            // Пререндер — собственное окружение vite: Astro 6 перевёл сборку на
-            // Environments API, и наследие `ssr.noExternal` его не покрывает.
+            // Оба серверных окружения Vite, а не наследуемый `ssr.noExternal`:
+            // Astro 6 перевёл сборку на Environments API. `ssr` — это dev-сервер и
+            // сборка под адаптером (`output: 'server'`), `prerender` — статика.
+            // Одного `prerender` не хватало: `astro dev` шёл через `ssr`, и первый
+            // же компонент с CSS в чанке ронял страницу тем же `ERR_UNKNOWN_FILE_EXTENSION`.
             environments: {
+              ssr: { resolve: { noExternal: NO_EXTERNAL } },
               prerender: { resolve: { noExternal: NO_EXTERNAL } },
             },
           },
