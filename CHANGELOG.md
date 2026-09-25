@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.1] 2026-09-25
+
 ### Fixed
 
 - **The dev server no longer crashes with `ERR_UNKNOWN_FILE_EXTENSION: ".css"`.** The
