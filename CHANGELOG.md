@@ -7,6 +7,75 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v1.0.0] 2026-09-28
+
+The package moves to `@feugene/granularity` 1.0 and to the `@feugene/granum` 1.0 CSS
+pipeline. The old `@feugene/unocss-preset-granular` preset is gone from the ecosystem,
+and with the previous peer range — `>=0.36.0 <1.0.0` — this integration excluded the very
+core it is built for.
+
+What 1.0 means here: the surface is the one 0.4 already had, and from now on it can only
+be broken by a major. Nothing was added to earn the number.
+
+**The move is breaking for consumers.** `uno.config.ts` is replaced by `granum.config.*`,
+the plugin is registered in `vite.plugins`, and the stylesheet is imported by the
+application — including the browser reset, which now has to live inside a cascade layer.
+
+### Removed
+
+- **`GRANULAR_PRESET_NAME` and the UnoCSS preset check.** The `no-uno-preset` and
+  `uno-config-unreadable` diagnostics are gone together with reading the consumer's
+  `uno.config` through `@unocss/config`. The `EnvProblem['code']` union changed, which
+  breaks code that dispatches on it.
+
+- **The `injectStyleBundle` option.** Its one honest use — a project that wants the
+  `--gr-*` scale and the theme switch without any components — is now a single
+  `import '@feugene/granularity/styles.css'` in the application's own layout, where the
+  order relative to everything else is visible to whoever wrote it. The option could not
+  offer that: Astro injects `page-ssr` scripts with `prepend`, so the import became the
+  *first* import of every page — ahead of the application's own reset. A reset declared
+  after the granum layers wins over them, and the components lose their utilities. Saving
+  one line was not worth the cascade trap.
+
+### Changed
+
+- **The peer on `@feugene/granularity` is `>=1.0.0 <2.0.0`.** The package does not work
+  with the previous ring at all: the CSS pipeline changed entirely in 1.0.
+
+- **CSS comes from `virtual:granum.css`, and the application imports it.** `unocss/astro`
+  is not needed, and neither is `uno.config.ts`. The order of the imports in the layout
+  is load-bearing: the reset inside a layer, then `virtual:granum.css`, then your own
+  unlayered CSS. Unlayered CSS beats any `@layer` regardless of specificity, so a reset
+  outside a layer silently overrides the component utilities.
+
+- **The environment check moved from `astro:config:setup` to `astro:config:done`.** The
+  Vite plugin list is only complete once every integration has run; a check in `setup`
+  would raise a false alarm on a config where granum is added by a neighbouring
+  integration.
+
+- **`unocss`, `@unocss/astro`, `@unocss/config` and `@feugene/unocss-preset-granular` are
+  gone from the dev dependencies; `@unocss/reset` is now declared explicitly** — it used
+  to arrive transitively through `unocss`, and without a declaration the example would
+  have broken silently.
+
+- **Classes used only inside a `client:only` island now reach the stylesheet with no
+  configuration.** `appSources` reads files from disk instead of following the transform
+  pipeline, so the `content.filesystem` workaround — and the quietest defect of the old
+  scheme — are both gone.
+
+### Added
+
+- **`GRANUM_PLUGIN_NAME` and three diagnostics:** `no-granum-plugin` (error — no CSS
+  arrives from anywhere and components render bare), `duplicate-granum-plugin` (error —
+  two instances hold two resolutions and write two reports, and the virtual modules come
+  from whichever answered first), `granum-plugins-unreadable` (warn — "not checked" is
+  still not "not there").
+
+- **Two e2e assertions on the cascade**: the main button's text colour differs from the
+  body's, and its padding is non-zero. The existing assertion on a non-transparent
+  background does not catch an unlayered reset — in `tailwind-compat.css` the button
+  background reset is commented out, while `color: inherit` and `padding: 0` are not.
+
 ## [v0.4.1] 2026-09-25
 
 ### Fixed

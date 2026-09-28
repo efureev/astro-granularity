@@ -12,9 +12,7 @@ type Registered = { middleware: boolean, warnings: string[] }
 
 async function setup(config: Record<string, unknown>, options = {}): Promise<Registered> {
   const result: Registered = { middleware: false, warnings: [] }
-  // `strict: false`: проверка окружения ищет `uno.config` рядом с корнем и в
-  // тестовом прогоне его не находит. Предмет проверки — не она.
-  const integration = granularity({ strict: false, ...options })
+  const integration = granularity(options)
 
   await integration.hooks['astro:config:setup']?.({
     addMiddleware: () => { result.middleware = true },

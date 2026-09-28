@@ -7,6 +7,18 @@ import SiteFooter from '../components/SiteFooter.vue'
 import SiteHeader from '../components/SiteHeader.vue'
 import { alternates, localePath, type PageKey } from '../i18n/routing'
 import { defaultLocale, localeNames, type Locale, locales, strings } from '../i18n/ui'
+/*
+ * Три импорта CSS, и порядок между ними несущий — из кода он не виден.
+ *
+ * Сброс объявляет `@layer reset` первым, поэтому в каскаде он идёт до слоёв
+ * granum и проигрывает им, как и положено сбросу. `virtual:granum.css` несёт
+ * пять слоёв `granum.*`. Тема примера слоя не объявляет вовсе — нелейерный CSS
+ * бьёт любой `@layer`, и канва страницы намеренно выигрывает у дизайн-системы.
+ *
+ * Переставить местами — значит поменять победителя, молча и без ошибки.
+ */
+import '../styles/reset.css'
+import 'virtual:granum.css'
 import '../styles/theme.css'
 
 interface Props {

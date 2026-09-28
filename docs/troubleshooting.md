@@ -14,20 +14,42 @@ and no error says so.
 yarn build   # then rebuild the site
 ```
 
-## "A component arrived without colour"
+## "A component arrived bare"
 
-UnoCSS did not scan the library's `dist`. Check `uno.config.ts`:
+Four checks, in this order:
 
-- the **same** options object goes into `granularContent(options)` and
-  `presetGranularNode(options)` — the first says what to scan, the second what to emit;
-- the component is in the `components` list. Transitive dependencies are resolved by the
-  preset, so listing `GrDialog` brings `GrModal`, but a component you use directly has to
-  be named.
+1. `granum(granumConfig)` is in `vite.plugins`. Without it nothing is emitted at all, and
+   the integration says so by failing the build.
+2. `import 'virtual:granum.css'` is in the layout. The plugin generates the stylesheet;
+   importing it is the application's job.
+3. The component is in the `components` selection — `granum explain <config> '<pkg>:<Name>'`
+   answers why it is or is not. Transitive dependencies are closed automatically, so
+   naming `GrDialog` brings `GrModal`.
+4. The class has a rule behind it — `granum why-css <config> '<class>'`.
 
-## "A `client:only` island arrived without styles"
+## "The button has colour, but its text inherits the page colour — or its padding is gone"
 
-Utilities used **only** inside such an island never reach the stylesheet. Add your own
-sources to `content.filesystem` — see [Islands](./islands.md#utilities-used-only-there-never-reach-the-css).
+The browser reset is outside a cascade layer. Unlayered CSS beats *any* `@layer`
+regardless of specificity, so `button { color: inherit; padding: 0 }` from the reset
+overrides the component utilities that live in `@layer granum.utilities`.
+
+```css
+/* src/styles/reset.css */
+@import '@unocss/reset/tailwind-compat.css' layer(reset);
+```
+
+The layer also has to be declared **before** the granum ones — a layer's place in the
+cascade is fixed by where it first appears — so this file is the first import of the
+layout.
+
+## "The build fails with `ComponentOutsideSelectionError`"
+
+A component is imported that the `components` selection does not name. Either add it, or
+switch to `components: 'imports'` and let the selection follow the imports.
+
+The guard only sees imports that survive transpilation: an import that is never used is
+elided before the bundler resolves it, so an unused component neither fails the build nor
+contributes CSS.
 
 ## "An overlay is empty"
 

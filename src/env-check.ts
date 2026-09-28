@@ -1,35 +1,41 @@
-/** Имя, под которым `presetGranularNode` регистрируется в UnoCSS. */
-export const GRANULAR_PRESET_NAME = 'granular-preset'
+/** Имя, под которым `granum()` регистрируется в Vite. */
+export const GRANUM_PLUGIN_NAME = 'granum:app'
 
 export const VUE_INTEGRATION_NAME = '@astrojs/vue'
 
 export type EnvProblem = {
   level: 'error' | 'warn'
-  code: 'no-vue-integration' | 'no-uno-preset' | 'uno-config-unreadable'
+  code: 'no-vue-integration' | 'no-granum-plugin' | 'duplicate-granum-plugin' | 'granum-plugins-unreadable'
   message: string
 }
 
-type PresetLike = { name?: string, presets?: unknown }
+type PluginLike = { name?: string }
 
 /**
- * Пресеты UnoCSS вкладываются друг в друга, поэтому плоского перебора мало:
- * `presetGranularNode` может приехать внутри составного пресета потребителя, и
- * тогда проверка на верхнем уровне даст ложную тревогу.
+ * `PluginOption` — не плоский список: Vite принимает вложенные массивы, `false`
+ * и `null` на месте выключенного плагина и промисы. Плоского перебора мало —
+ * `granum()`, приехавший внутри пресета плагинов потребителя, дал бы ложную
+ * тревогу.
  */
-export function collectPresetNames(presets: unknown, seen = new Set<unknown>()): string[] {
-  if (!Array.isArray(presets))
+export async function collectPluginNames(plugins: unknown, seen = new Set<unknown>()): Promise<string[]> {
+  const resolved: unknown = await plugins
+  if (!Array.isArray(resolved))
     return []
 
   const names: string[] = []
-  for (const preset of presets) {
-    if (preset === null || typeof preset !== 'object' || seen.has(preset))
+  for (const item of resolved) {
+    const plugin: unknown = await item
+    if (plugin === null || typeof plugin !== 'object' || seen.has(plugin))
       continue
-    seen.add(preset)
+    seen.add(plugin)
 
-    const { name, presets: nested } = preset as PresetLike
+    if (Array.isArray(plugin)) {
+      names.push(...await collectPluginNames(plugin, seen))
+      continue
+    }
+    const { name } = plugin as PluginLike
     if (typeof name === 'string')
       names.push(name)
-    names.push(...collectPresetNames(nested, seen))
   }
   return names
 }
@@ -38,13 +44,13 @@ export type EnvInput = {
   /** Имена интеграций из `config.integrations`. */
   integrationNames: string[]
   /**
-   * Имена пресетов UnoCSS. `null` — конфиг прочитать не удалось: это не то же
+   * Имена плагинов Vite. `null` — список развернуть не удалось: это не то же
    * самое, что пустой список, и сообщение обязано быть другим.
    */
-  presetNames: string[] | null
+  pluginNames: string[] | null
 }
 
-export function checkEnvironment({ integrationNames, presetNames }: EnvInput): EnvProblem[] {
+export function checkEnvironment({ integrationNames, pluginNames }: EnvInput): EnvProblem[] {
   const problems: EnvProblem[] = []
 
   if (!integrationNames.includes(VUE_INTEGRATION_NAME)) {
@@ -58,24 +64,41 @@ export function checkEnvironment({ integrationNames, presetNames }: EnvInput): E
     })
   }
 
-  if (presetNames === null) {
+  if (pluginNames === null) {
     problems.push({
       level: 'warn',
-      code: 'uno-config-unreadable',
+      code: 'granum-plugins-unreadable',
       message:
-        'конфиг UnoCSS прочитать не удалось, поэтому наличие `presetGranularNode` не проверено. '
-        + 'Если компоненты приедут бесцветными — причина здесь.',
+        'список плагинов Vite развернуть не удалось, поэтому наличие плагина granum не проверено. '
+        + 'Если компоненты приедут голыми — причина здесь.',
     })
+    return problems
   }
-  else if (!presetNames.includes(GRANULAR_PRESET_NAME)) {
+
+  const granumPlugins = pluginNames.filter(name => name === GRANUM_PLUGIN_NAME).length
+  if (granumPlugins === 0) {
     problems.push({
       level: 'error',
-      code: 'no-uno-preset',
+      code: 'no-granum-plugin',
       message:
-        `в конфиге UnoCSS нет пресета «${GRANULAR_PRESET_NAME}». Классы из SFC библиотеки не попадут `
-        + 'в вывод, и компоненты отрисуются без цвета, отступов и размеров.\n'
-        + "  Добавьте в uno.config.ts: presets: [presetGranularNode({ providers: [...] })]"
-        + "  // import { presetGranularNode } from '@feugene/unocss-preset-granular/node'",
+        'в конфиге Vite нет плагина granum. CSS дизайн-системы не приедет ниоткуда: '
+        + 'ни утилит, ни токенов, ни тем — компоненты отрисуются голыми.\n'
+        + '  Добавьте в astro.config.mjs:\n'
+        + "    import { granum } from '@feugene/granum/vite'\n"
+        + "    import granumConfig from './granum.config.mjs'\n"
+        + '    vite: { plugins: [granum(granumConfig)] }\n'
+        + "  И один импорт в лейаут: import 'virtual:granum.css'",
+    })
+  }
+  else if (granumPlugins > 1) {
+    problems.push({
+      level: 'error',
+      code: 'duplicate-granum-plugin',
+      message:
+        `плагин granum зарегистрирован ${granumPlugins} раза. Каждый инстанс держит свою `
+        + 'резолюцию и пишет свой отчёт сборки, а виртуальные модули отдаёт тот, что успел '
+        + 'первым, — то есть CSS может приехать не по тому конфигу, который правили.\n'
+        + '  Оставьте одну запись `granum(...)` в `vite.plugins`.',
     })
   }
 
@@ -83,8 +106,8 @@ export function checkEnvironment({ integrationNames, presetNames }: EnvInput): E
 }
 
 /**
- * Интеграция не правит чужой конфиг молча: тихая подстановка пресета даёт баги,
- * которые ищут днями — человек читает свой `uno.config.ts`, видит одно, а
+ * Интеграция не правит чужой конфиг молча: тихо дописанный плагин даёт баги,
+ * которые ищут днями — человек читает свой `astro.config.mjs`, видит одно, а
  * собирается другое. Поэтому расхождение только называется, а чинит его автор.
  */
 export function formatProblems(problems: EnvProblem[]): string {

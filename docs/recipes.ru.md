@@ -5,7 +5,7 @@
 Шесть способов подключить интеграцию. Они различаются тем, какие части включены, а не стилем, — выбирайте тот, чьи
 ограничения совпадают с вашими.
 
-| #                                   | Рецепт                        | Vue | Строки   | UnoCSS |
+| #                                   | Рецепт                        | Vue | Строки   | granum |
 |-------------------------------------|-------------------------------|-----|----------|--------|
 | [1](#1-покомпонентная-установка)    | Покомпонентная установка      | ✓  | ✓       | ✓     |
 | [2](#2-установка-всех-компонентов)  | Установка всех компонентов    | ✓  | ✓       | ✓     |
@@ -22,22 +22,23 @@
 Вы называете компоненты, которые действительно ставите в разметку; всё остальное
 выводится из этого списка.
 
-Файла два, и важны оба — интеграция и таблица стилей настраиваются по отдельности.
+Файла три, и важен каждый: интеграция, таблица стилей и лейаут настраиваются по отдельности.
 
 ```js
 // astro.config.mjs
 import vue from '@astrojs/vue'
 import granularity from '@feugene/astro-granularity'
+import { granum } from '@feugene/granum/vite'
 import { defineConfig } from 'astro/config'
-import UnoCSS from 'unocss/astro'
+import granumConfig from './granum.config.mjs'
 
 export default defineConfig({
   site: 'https://example.com',
   integrations: [
     vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
-    UnoCSS({ injectReset: true }),
     granularity({ i18n: { locales: ['en', 'ru'] } }),
   ],
+  vite: { plugins: [granum(granumConfig)] },
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'ru'],
@@ -46,30 +47,29 @@ export default defineConfig({
 })
 ```
 
-```ts
-// uno.config.ts
-import { defineConfig, presetMini } from 'unocss'
-import { granularContent, presetGranularNode } from '@feugene/unocss-preset-granular/node'
-import provider from '@feugene/granularity/granular-provider/node'
+```js
+// granum.config.mjs
+import { windEngine } from '@feugene/granum-engine-wind'
+import { defineGranumConfig } from '@feugene/granum/vite'
 
-const options = {
-  providers: [provider],
+export default defineGranumConfig({
+  engine: windEngine(),
+  providers: ['@feugene/granularity'],
   components: [
     { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
   ],
   themes: { names: ['light', 'dark'] },
-}
-
-export default defineConfig({
-  presets: [presetMini(), presetGranularNode(options)],
-  content: {
-    ...granularContent(options),
-    filesystem: [
-      ...(granularContent(options).filesystem ?? []),
-      'src/**/*.{vue,astro,ts}',
-    ],
-  },
+  appSources: { dirs: ['src'] },
 })
+```
+
+```astro
+---
+// src/layouts/BaseLayout.astro — порядок этих трёх строк несущий
+import '../styles/reset.css'   // @import '@unocss/reset/tailwind-compat.css' layer(reset);
+import 'virtual:granum.css'    // пять каскадных слоёв granum.*
+import '../styles/theme.css'   // своё, вне слоёв — и потому побеждает
+---
 ```
 
 Это вся установка: острова на Vue, строки компонентов в HTML, авто-импорт, проверки
@@ -86,26 +86,31 @@ export default defineConfig({
    но он вам понадобится.
 
 Из списка компонентов интеграция не читает ничего: выбор живёт целиком в
-`uno.config.ts`. Один и тот же объект `options` обязан уйти и в `presetGranularNode`, и
-в `granularContent` — первое решает, что эмитить, второе — что сканировать; разъедутся,
-и компоненты приедут неоформленными.
+`granum.config.mjs`. Что она проверяет — это что плагин вообще зарегистрирован: без
+`granum` в `vite.plugins` сборка падает, а не отдаёт голую страницу.
+
+**Порядок импортов CSS решает каскад.** Нелейерный CSS бьёт любой `@layer`, поэтому
+сброс обязан лежать в слое, объявленном до слоёв granum, а своё оформление страницы
+выигрывает именно потому, что слоя не объявляет.
 
 ### Чего стоит выбор
 
-Сгенерированный CSS, замерено на этом репозитории с `@feugene/granularity@0.36.0` и
-пресетом `0.13.0`:
+Эмитированный CSS, замерено против `@feugene/granularity@1.0.0` и `@feugene/granum@1.0.0`
+с обеими темами:
 
-| Выбор | CSS | Файлов библиотеки сканируется |
-| --- | --- | --- |
-| `GrButton` | 44 713 Б | 2 |
-| `GrButton`, `GrCard` | 45 695 Б | 4 |
-| Пять, как в `example/` | 66 778 Б | 20 |
-| `'all'` | 113 996 Б | 158 |
+| Выбор | Компонентов после замыкания | CSS | gzip | Классов |
+| --- | --- | --- | --- | --- |
+| `GrButton` | 1 | 59 276 Б | 13 067 Б | 196 |
+| `GrButton`, `GrCard` | 2 | 60 258 Б | 13 291 Б | 220 |
+| `'all'` | 84 | 171 254 Б | 28 878 Б | 1 210 |
 
-Первую строку надо читать как пол: около 44 КБ — это токены, обе темы, базовый слой и
-preflight'ы, и они там будут при сколь угодно скромном выборе. Второй компонент
+Первую строку надо читать как пол: около 58 КБ — это токены, обе темы, базовый слой и
+preflight движка, и они там будут при сколь угодно скромном выборе. Второй компонент
 добавляет около 1 КБ. Эта форма и есть смысл: за дизайн-систему платят один раз, а
 компоненты после этого дёшевы.
+
+«Компонентов после замыкания» — это то, что реально приехало: девять названных в
+`example/` дают пятнадцать, потому что транзитивные зависимости приходят сами.
 
 ### Как работать со списком
 
@@ -129,16 +134,14 @@ Available in '@feugene/granularity': [GrAlert, GrAutocomplete, …]
 отступов и размеров. Ничего при этом не упадёт, страница просто будет выглядеть не так.
 Если симптом такой — смотреть надо сюда в первую очередь.
 
-У пресета есть CLI ровно под эти вопросы:
+У granum есть CLI ровно под эти вопросы, и он читает тот же файл конфига:
 
 ```bash
-npx granular explain ./granular.options.mjs '@feugene/granularity:GrModal'  # почему он в сборке
-npx granular why-css ./granular.options.mjs 'rounded-lg'                    # кто притащил класс
-npx granular doctor  ./granular.options.mjs                                 # вся конфигурация
+npx granum explain ./granum.config.mjs '@feugene/granularity:GrModal'  # почему он в сборке
+npx granum why-css ./granum.config.mjs 'rounded-lg'                    # кто притащил класс
+npx granum doctor  ./granum.config.mjs --strict                        # вся конфигурация
+npx granum audit   dist                                                # и собранный сайт
 ```
-
-Он читает обычный модуль, экспортирующий опции, — значит, их надо вынести из
-`uno.config.ts` в `granular.options.mjs` и импортировать обратно, иначе подавать нечего.
 
 ---
 
@@ -146,15 +149,17 @@ npx granular doctor  ./granular.options.mjs                                 # в
 
 `astro.config.mjs` тот же, что в рецепте 1, — различается только выбор.
 
-```ts
-const options = {
-  providers: [provider],
+```js
+export default defineGranumConfig({
+  engine: windEngine(),
+  providers: ['@feugene/granularity'],
   components: 'all',
   themes: { names: ['light', 'dark'] },
-}
+  appSources: { dirs: ['src'] },
+})
 ```
 
-Все 78 компонентов ядра и 113 996 Б CSS против 45 695 Б у двух — и каждый байт блокирует
+Все 84 компонента ядра и 171 254 Б CSS против 60 258 Б у двух — и каждый байт блокирует
 первую отрисовку, потому что это таблица стилей документа.
 
 **Оправдано, когда набор компонентов заранее действительно неизвестен**: админка,
@@ -163,11 +168,12 @@ const options = {
 устаревает, и компонент, приезжающий в продакшен неоформленным.
 
 **Не оправдано как способ не писать список.** Сайт с известным набором страниц знает
-свои компоненты; `'all'` покупает там 68 КБ блокирующих стилей ценой неправки одного
-массива.
+свои компоненты; `'all'` покупает там 111 КБ лишних блокирующих стилей ценой неправки
+одного массива.
 
-Сканирование тоже растёт: 158 файлов библиотеки против 4. Это время сборки, а не
-рантайма, но и оно не бесплатно.
+Вместе с этим теряется guard импортов. При явном выборе импорт компонента, которого в
+нём нет, роняет сборку; при `'all'` сравнивать импорт не с чем, и компонент, которым
+тихо перестали пользоваться, продолжает платить за себя.
 
 ---
 
@@ -180,9 +186,9 @@ const options = {
 // astro.config.mjs
 integrations: [
     vue({appEntrypoint: './src/vue-app.ts'}),
-    UnoCSS({injectReset: true}),
     granularity({i18n: false}),
-]
+],
+vite: {plugins: [granum(granumConfig)]},
 ```
 
 ```ts
@@ -225,20 +231,23 @@ granularity({
 })
 ```
 
-```ts
-// uno.config.ts — спутнику нужен и свой провайдер
-import chronoProvider from '@feugene/granularity-chrono/granular-provider/node'
-import granularityProvider from '@feugene/granularity/granular-provider/node'
-
-const options = {
-    providers: [granularityProvider, chronoProvider],
+```js
+// granum.config.mjs — спутник это собственный провайдер
+export default defineGranumConfig({
+    engine: windEngine(),
+    providers: ['@feugene/granularity', '@feugene/granularity-chrono'],
     components: [
         {provider: '@feugene/granularity', names: ['GrButton', 'GrCard']},
         {provider: '@feugene/granularity-chrono', names: ['GrDatePicker']},
     ],
     themes: {names: ['light', 'dark']},
-}
+    appSources: {dirs: ['src']},
+})
 ```
+
+Провайдеры называются именем пакета, а не импортируются: granum читает
+`granum.manifest.json` каждого через его `exports`, и ничей `dist` при этом никто не
+сканирует.
 
 **Имена блоков нигде не перечисляются.** `deriveI18nBlocks` читает их из коллекций лоадеров, где они лежат вторым
 уровнем ключа. Это важно потому, что имя блока не выводится из имени пакета: `granularity-forms-schema` объявляет
@@ -318,7 +327,6 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   integrations: [
     vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
-    UnoCSS({ injectReset: true }),
     granularity({
       i18n: {
         locales: ['en', 'ru'],
@@ -326,6 +334,7 @@ export default defineConfig({
       },
     }),
   ],
+  vite: { plugins: [granum(granumConfig)] },
 })
 ```
 

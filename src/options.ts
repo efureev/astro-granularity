@@ -16,15 +16,6 @@ export type GranularityAstroOptions = {
   themeStorageKey?: string
   /** Вставлять ли скрипт темы. Выключается, когда приложение ставит `data-theme` само. */
   injectThemeScript?: boolean
-  /**
-   * Импортировать бандл `@feugene/granularity/styles.css`.
-   *
-   * По умолчанию `false`, и это не осторожность: при работающем
-   * `presetGranularNode` темы, токены и базовый слой уже приезжают из
-   * `virtual:uno.css` как preflights. Импорт бандла удвоил бы их. Включается
-   * только для сборок без UnoCSS.
-   */
-  injectStyleBundle?: boolean
   /** Регистрировать ли резолвер авто-импорта. */
   resolver?: boolean
   /**
@@ -83,7 +74,6 @@ const DEFAULTS: ResolvedOptions = {
   defaultTheme: 'system',
   themeStorageKey: DEFAULT_STORAGE_KEY,
   injectThemeScript: true,
-  injectStyleBundle: false,
   resolver: true,
   i18n: { packages: [], locales: [], ssrStrings: 'used' },
   strict: true,
@@ -125,7 +115,6 @@ export function resolveOptions(options: GranularityAstroOptions = {}): ResolvedO
     defaultTheme,
     themeStorageKey,
     injectThemeScript: options.injectThemeScript ?? DEFAULTS.injectThemeScript,
-    injectStyleBundle: options.injectStyleBundle ?? DEFAULTS.injectStyleBundle,
     resolver: options.resolver ?? DEFAULTS.resolver,
     i18n: resolveI18n(options.i18n),
     strict: options.strict ?? DEFAULTS.strict,

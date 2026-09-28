@@ -62,29 +62,24 @@ appearing shifts everything below it.
 
 On the example's overview page this is the difference between CLS `0.008` and CLS `0`.
 
-### Utilities used only there never reach the CSS
+### Utilities used only there still reach the CSS
 
-`granularContent(options)` covers the library's `dist`; your own files are picked up by
-the transform pipeline. A `client:only` island is absent from the server build, and the
-client build runs after the stylesheet is emitted — so a class used **only** inside such
-an island is never generated. The island arrives unstyled, with no error and no warning.
+Classes are collected from the directories named in `appSources`, read from disk:
 
-```ts
-const content = granularContent(options)
-
-export default defineConfig({
-  content: {
-    ...content,
-    filesystem: [...(content.filesystem ?? []), 'src/**/*.{vue,astro,ts}'],
-  },
-  presets: [presetMini(), presetGranularNode(options)],
-})
+```js
+// granum.config.mjs
+appSources: {dirs: ['src']},
 ```
 
+Reading files rather than following the transform pipeline is what makes a `client:only`
+island safe. Such an island is absent from the server build, and the client build runs
+after the stylesheet has been emitted — a pipeline-driven collector would never see its
+classes, and the island would arrive unstyled with no error and no warning.
+
 To check this yourself, put a unique utility (`mt-[3px]`) inside a `client:only` island
-and another inside a `client:load` one, then grep the built stylesheet for both. **Grep
-for the escaped form** — the file contains `mt-\[3px\]`, and a pattern without the
-backslashes finds nothing and manufactures a false alarm.
+and grep the built stylesheet for it. **Grep for the escaped form** — the file contains
+`mt-\[3px\]`, and a pattern without the backslashes finds nothing and manufactures a
+false alarm.
 
 ## Hydration directives
 

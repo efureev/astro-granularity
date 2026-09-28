@@ -15,7 +15,6 @@ granularity({ /* … */ })
 | `defaultTheme` | `'system'` | Theme when nothing is stored: `'light'`, `'dark'` or `'system'` |
 | `themeStorageKey` | `'gr-theme'` | Storage key. Must match the core `useTheme` |
 | `injectThemeScript` | `true` | Emit the inline theme script into `<head>` |
-| `injectStyleBundle` | `false` | Import `@feugene/granularity/styles.css` — themes, tokens, base layer. Gives **no** component styles |
 | `resolver` | `true` | Register the auto-import resolver |
 | `i18n` | `{}` | Strings: `{ packages, locales, ssrStrings }`. `false` disables the loader module entirely |
 | `i18n.packages` | `[]` | Satellite packages besides the core. The core is always included |
@@ -27,20 +26,41 @@ Options are validated in `resolveOptions` and throw `TypeError` prefixed
 `[astro-granularity]`. Validation happens at the boundary, not at the point of use, so a
 typo surfaces during config rather than in the middle of a build.
 
-### Why `injectStyleBundle` defaults to `false`
+### Where the CSS comes from
 
-With `presetGranularNode` running, tokens, themes and the base layer already arrive from
-`virtual:uno.css` as preflights. Importing the bundle on top would ship a second copy of
-every one of them.
+The integration emits no CSS at all. It comes from `@feugene/granum`, an ordinary Vite
+plugin that you register yourself:
 
-Turning it on is **not** a way to use the components without UnoCSS. The bundle carries
-custom properties and element-level rules; the components are marked up with utility
-classes, and of the 114 they use it defines none. Under the bundle alone a `GrButton`
-gets its colours and nothing else — no layout, no size, no radius.
+```js
+vite: {plugins: [granum(granumConfig)]}
+```
 
-What it is for is a project that wants the `--gr-*` scale and the theme switch for its
-own markup and uses no components at all. Every setup in [Recipes](./recipes.md) leaves
-it off.
+and whose output you import yourself, in one place — the layout:
+
+```astro
+---
+import '../styles/reset.css'   // @import '@unocss/reset/tailwind-compat.css' layer(reset);
+import 'virtual:granum.css'    // five cascade layers, granum.*
+import '../styles/theme.css'   // your own, unlayered — and therefore the winner
+---
+```
+
+**The order is load-bearing and invisible in the code.** `virtual:granum.css` ships five
+cascade layers, `granum.{tokens,base,themes,components,utilities}`, and a layer's place
+in the cascade is fixed by where it first appears. Unlayered CSS beats *any* `@layer`
+regardless of specificity, so:
+
+- the browser reset must be inside a layer declared before the granum ones, or
+  `button { color: inherit; padding: 0 }` from it overrides the component utilities;
+- your own page styling wins over the design system precisely because it declares no
+  layer — that is the intent, not an accident.
+
+Both failures are silent: no error, no warning, just a component that looks wrong.
+
+A project that wants the `--gr-*` scale and the theme switch for its own markup and uses
+no components at all needs neither the plugin nor the virtual module — one line,
+`import '@feugene/granularity/styles.css'`, does it. The environment check will still ask
+for the plugin, so turn it off with `strict: false`.
 
 ### Why `i18n.locales` matters
 
@@ -79,7 +99,7 @@ Build-time helpers, exported because they are testable in isolation:
 - `createThemeScript(storageKey, defaultTheme)`, `resolveTheme`, `THEME_SCRIPT_BUDGET_BYTES`
 - `buildI18nModuleSource`, `assertPackageSpecifier`, `VIRTUAL_I18N_ID`
 - `createVirtualI18nPlugin` and its types
-- `GRANULAR_PRESET_NAME`, `VUE_INTEGRATION_NAME`
+- `GRANUM_PLUGIN_NAME`, `VUE_INTEGRATION_NAME`
 - Types: `GranularityAstroOptions`, `ResolvedOptions`, `DefaultTheme`, `ThemeName`, `SSRStringsMode`
 
 Plus a re-export of the `./runtime` surface for convenience.
@@ -122,14 +142,36 @@ first — `assertLocaleName` and `assertPackageSpecifier` — and emitted throug
 `JSON.stringify`. Two independent layers, because a config value that becomes executable
 code in someone else's build is not a theoretical problem.
 
+## The environment check
+
+Four codes, reported through `strict` — `true` fails the build, `false` logs and carries
+on:
+
+| Code | Level | When |
+| --- | --- | --- |
+| `no-vue-integration` | error | `@astrojs/vue` is not among the integrations: Astro has nothing to render `.vue` with |
+| `no-granum-plugin` | error | no `granum:app` in `vite.plugins`: no utilities, no tokens, no themes — components render bare |
+| `duplicate-granum-plugin` | error | two instances hold two resolutions and write two reports; the virtual modules come from whichever answered first |
+| `granum-plugins-unreadable` | warn | the plugin list could not be unwrapped. "Not checked" is not "not there" |
+
+**It runs in `astro:config:done`, not `astro:config:setup`.** The plugin list is only
+complete once every integration has run, so a check in `setup` would fail a healthy
+project depending on the order of integrations. A side benefit: `@astrojs/vue` added by
+another integration is seen too.
+
 ## Peer ranges
 
 | Peer | Range | Optional |
 | --- | --- | --- |
 | `astro` | `>=7.0.0 <8.0.0` | no |
 | `@astrojs/vue` | `>=7.0.0 <8.0.0` | yes |
-| `@feugene/granularity` | `>=0.36.0 <1.0.0` | no |
+| `@feugene/granularity` | `>=1.0.0 <2.0.0` | no |
+| `@feugene/granum` | `>=1.0.0 <2.0.0` | yes |
 | `@feugene/fint-i18n` | `>=0.7.0 <1.0.0` | yes |
+
+`@feugene/granum` is optional because the integration never loads it — not statically,
+not dynamically. It only checks that the plugin is registered, by name. A project with no
+components has to install without it.
 
 **A floor sits at the version the gate runs on.** A range claiming support for something
 nobody tested is worse than a narrow one: the install succeeds and the breakage surfaces

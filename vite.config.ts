@@ -31,17 +31,15 @@ export default defineConfig({
     },
     rolldownOptions: {
       // Всё, что резолвится у потребителя, остаётся внешним. Иначе
-      // `@unocss/config` и `unplugin-vue-components` уезжают в бандл целиком:
-      // 608 КБ на пакет, который только настраивает чужую сборку.
+      // `unplugin-vue-components` уезжает в бандл целиком: сотни килобайт на
+      // пакет, который только настраивает чужую сборку.
       external: [
         /^node:/,
         /^astro/,
         /^@astrojs\//,
         /^@feugene\//,
-        /^@unocss\//,
         /^virtual:/,
         /^unplugin-vue-components/,
-        'unocss',
         'vite',
         'vue',
       ],

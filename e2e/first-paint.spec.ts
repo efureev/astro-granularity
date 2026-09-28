@@ -460,12 +460,29 @@ test.describe('остров', () => {
     const button = page.getByTestId('pref-save')
     await expect(button).toBeVisible()
 
-    // Цвет — главное. Бесцветная кнопка означает, что UnoCSS не просканировал
-    // `dist` библиотеки, и это самый частый способ собрать портал молча сломанным.
+    // Цвет — главное. Бесцветная кнопка означает, что CSS дизайн-системы не
+    // приехал вовсе, и это самый частый способ собрать портал молча сломанным.
     // Проверяется основная кнопка: у `outline` фона нет по определению.
     const background = await button.evaluate(el => getComputedStyle(el).backgroundColor)
     expect(background).not.toBe('rgba(0, 0, 0, 0)')
     expect(background).not.toBe('transparent')
+
+    /*
+     * Каскад собран правильно, а не просто «CSS приехал».
+     *
+     * Слои granum проигрывают любому нелейерному CSS, поэтому сброс браузерных
+     * стилей обязан лежать внутри `@layer reset`, объявленного раньше них.
+     * Уехав из слоя, он начинает бить утилиты компонента — а ассерт про фон
+     * выше этого НЕ ловит: в `tailwind-compat.css` сброс фона кнопки
+     * закомментирован. Живы там как раз `color: inherit` и `padding: 0`.
+     */
+    const cascade = await button.evaluate(el => ({
+      color: getComputedStyle(el).color,
+      bodyColor: getComputedStyle(document.body).color,
+      paddingLeft: Number.parseFloat(getComputedStyle(el).paddingLeft),
+    }))
+    expect(cascade.color).not.toBe(cascade.bodyColor)
+    expect(cascade.paddingLeft).toBeGreaterThan(0)
 
     // Гидратация: до неё нажатие ничего не меняет.
     await button.click()

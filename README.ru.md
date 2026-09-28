@@ -21,11 +21,13 @@
 | **Тема без мигания**   | Синхронный инлайн-скрипт в `<head>` разрешает тему так же, как `useTheme` ядра, и переживает клиентскую навигацию | `injectThemeScript: false` |
 | **Строки в HTML**      | Middleware сообщает язык маршрута до рендера и кладёт снимок переводов в `<head>`                                 | `i18n.ssrStrings: false`   |
 | **Авто-импорт**        | Регистрирует резолвер `unplugin-vue-components`: `<GrButton>` в `.vue` не требует импорта                         | `resolver: false`          |
-| **Проверка окружения** | Роняет сборку, если нет `@astrojs/vue` или пресета UnoCSS, называя точную строку-починку                          | `strict: false`            |
+| **Проверка окружения** | Роняет сборку, если нет `@astrojs/vue` или плагина `granum`, называя точную строку-починку                       | `strict: false`            |
 
-Чужой конфиг она **не правит**. Нет `granular-preset` в `uno.config.ts` или `@astrojs/vue`
-в `integrations` — будет внятная ошибка, а не тихая подстановка: конфиг, который читается одним, а собирается другим,
-ищут днями.
+Чужой конфиг она **не правит**. Нет плагина `granum` в `vite.plugins` или `@astrojs/vue` в `integrations` — будет
+внятная ошибка, а не тихая подстановка: конфиг, который читается одним, а собирается другим, ищут днями.
+
+CSS-конвейер остаётся вашим: `granum` — обычный плагин Vite, его регистрируете вы и его стиль импортируете тоже вы.
+Интеграция знает про него ровно одно — имя плагина, — поэтому версию `granum` выбираете вы.
 
 ## Установка
 
@@ -33,12 +35,15 @@
 
 ```bash
 # yarn
-yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
+yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
 # npm
-npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
+npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
 # pnpm
-pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
+pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
 ```
+
+`@feugene/granum` собирает CSS, `@feugene/granum-engine-wind` — движок утилит, на котором он работает. Оба нужны только
+на сборке: в браузер из них не уезжает ничего.
 
 ## Быстрый старт
 
@@ -46,15 +51,16 @@ pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
 // astro.config.mjs
 import vue from '@astrojs/vue'
 import granularity from '@feugene/astro-granularity'
+import {granum} from '@feugene/granum/vite'
 import {defineConfig} from 'astro/config'
-import UnoCSS from 'unocss/astro'
+import granumConfig from './granum.config.mjs'
 
 export default defineConfig({
     integrations: [
         vue({appEntrypoint: '@feugene/astro-granularity/app'}),
-        UnoCSS({injectReset: true}),
         granularity({i18n: {locales: ['en', 'ru']}}),
     ],
+    vite: {plugins: [granum(granumConfig)]},
     i18n: {
         defaultLocale: 'en',
         locales: ['en', 'ru'],
@@ -63,34 +69,34 @@ export default defineConfig({
 })
 ```
 
-```ts
-// uno.config.ts
-import granularityProvider from '@feugene/granularity/granular-provider/node'
-import {granularContent, presetGranularNode} from '@feugene/unocss-preset-granular/node'
-import {defineConfig, presetMini} from 'unocss'
+```js
+// granum.config.mjs
+import {windEngine} from '@feugene/granum-engine-wind'
+import {defineGranumConfig} from '@feugene/granum/vite'
 
-const options = {
-    providers: [granularityProvider],
+export default defineGranumConfig({
+    engine: windEngine(),
+    providers: ['@feugene/granularity'],
     components: [{provider: '@feugene/granularity', names: ['GrButton', 'GrCard']}],
     themes: {names: ['light', 'dark']},
-    layer: 'granular',
-}
-
-const content = granularContent(options)
-
-export default defineConfig({
-    content: {
-        ...content,
-        // Свои исходники — с диска. Без этой строки утилиты, встречающиеся только
-        // внутри острова `client:only`, в CSS не попадают вовсе — см. docs/islands.ru.md.
-        filesystem: [...(content.filesystem ?? []), 'src/**/*.{vue,astro,ts}'],
-    },
-    presets: [presetMini(), presetGranularNode(options)],
+    // Свои исходники — с диска. Утилита, встречающаяся только внутри острова
+    // `client:only`, доезжает до CSS без единой дополнительной настройки.
+    appSources: {dirs: ['src']},
 })
 ```
 
-Оба вызова получают **один и тот же** объект настроек: первый задаёт, что сканировать, второй — что эмитить.
-Разъедутся — компоненты приедут без стилей.
+```astro
+---
+// src/layouts/BaseLayout.astro — порядок этих трёх строк несущий
+import '../styles/reset.css'   // @import '@unocss/reset/tailwind-compat.css' layer(reset);
+import 'virtual:granum.css'    // пять каскадных слоёв granum.*
+import '../styles/theme.css'   // своё, вне слоёв — и потому побеждает
+---
+```
+
+**Порядок импортов CSS решает каскад.** Нелейерный CSS бьёт любой `@layer` независимо от специфичности, поэтому сброс
+браузерных стилей обязан лежать в слое, объявленном *до* слоёв granum, — иначе `button { color: inherit; padding: 0 }`
+из сброса перебьёт утилиты компонента, молча и без предупреждения.
 
 ## Документация
 

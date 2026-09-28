@@ -7,15 +7,10 @@ describe('resolveOptions', () => {
       defaultTheme: 'system',
       themeStorageKey: DEFAULT_STORAGE_KEY,
       injectThemeScript: true,
-      injectStyleBundle: false,
       resolver: true,
       i18n: { packages: [], locales: [], ssrStrings: 'used' },
       strict: true,
     })
-  })
-
-  it('бандл стилей выключен по умолчанию: при `presetGranularNode` он удвоил бы CSS', () => {
-    expect(resolveOptions().injectStyleBundle).toBe(false)
   })
 
   it('каждая автоматическая вещь выключается флагом', () => {

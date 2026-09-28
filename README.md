@@ -21,11 +21,14 @@ project that does not fit its assumptions.
 | **Theme without a flash** | A synchronous inline script in `<head>` resolves the theme the same way the core `useTheme` does, and survives client-side navigation | `injectThemeScript: false` |
 | **Strings in the HTML**   | A middleware declares the route locale before the page renders and embeds a snapshot of the translations into `<head>`                | `i18n.ssrStrings: false`   |
 | **Auto-import**           | Registers the `unplugin-vue-components` resolver, so `<GrButton>` needs no import inside `.vue`                                       | `resolver: false`          |
-| **Environment check**     | Fails the build when `@astrojs/vue` or the UnoCSS preset is missing, naming the exact line to add                                     | `strict: false`            |
+| **Environment check**     | Fails the build when `@astrojs/vue` or the `granum` Vite plugin is missing, naming the exact line to add                              | `strict: false`            |
 
-It does **not** rewrite your config. Missing `granular-preset` in `uno.config.ts` or
-`@astrojs/vue` in `integrations` produces a clear error, never a silent substitution — a config that reads one way and
-builds another costs days to debug.
+It does **not** rewrite your config. A missing `granum` plugin in `vite.plugins` or `@astrojs/vue` in `integrations`
+produces a clear error, never a silent substitution — a config that reads one way and builds another costs days to
+debug.
+
+The CSS pipeline stays yours: `granum` is an ordinary Vite plugin, you register it and you import its stylesheet. The
+integration knows one thing about it — the plugin name — so the version of `granum` remains your choice.
 
 ## Install
 
@@ -34,12 +37,15 @@ panel.
 
 ```bash
 # yarn
-yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
+yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
 # npm
-npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
+npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
 # pnpm
-pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
+pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
 ```
+
+`@feugene/granum` builds the CSS and `@feugene/granum-engine-wind` is the utility engine it runs. Both are build-time
+only: nothing of them ships to the browser.
 
 ## Quick start
 
@@ -47,15 +53,16 @@ pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom
 // astro.config.mjs
 import vue from '@astrojs/vue'
 import granularity from '@feugene/astro-granularity'
+import {granum} from '@feugene/granum/vite'
 import {defineConfig} from 'astro/config'
-import UnoCSS from 'unocss/astro'
+import granumConfig from './granum.config.mjs'
 
 export default defineConfig({
     integrations: [
         vue({appEntrypoint: '@feugene/astro-granularity/app'}),
-        UnoCSS({injectReset: true}),
         granularity({i18n: {locales: ['en', 'ru']}}),
     ],
+    vite: {plugins: [granum(granumConfig)]},
     i18n: {
         defaultLocale: 'en',
         locales: ['en', 'ru'],
@@ -64,34 +71,34 @@ export default defineConfig({
 })
 ```
 
-```ts
-// uno.config.ts
-import granularityProvider from '@feugene/granularity/granular-provider/node'
-import {granularContent, presetGranularNode} from '@feugene/unocss-preset-granular/node'
-import {defineConfig, presetMini} from 'unocss'
+```js
+// granum.config.mjs
+import {windEngine} from '@feugene/granum-engine-wind'
+import {defineGranumConfig} from '@feugene/granum/vite'
 
-const options = {
-    providers: [granularityProvider],
+export default defineGranumConfig({
+    engine: windEngine(),
+    providers: ['@feugene/granularity'],
     components: [{provider: '@feugene/granularity', names: ['GrButton', 'GrCard']}],
     themes: {names: ['light', 'dark']},
-    layer: 'granular',
-}
-
-const content = granularContent(options)
-
-export default defineConfig({
-    content: {
-        ...content,
-        // Your own sources read from disk. Without this, utilities used only inside a
-        // `client:only` island never reach the stylesheet — see docs/islands.md.
-        filesystem: [...(content.filesystem ?? []), 'src/**/*.{vue,astro,ts}'],
-    },
-    presets: [presetMini(), presetGranularNode(options)],
+    // Your own sources, read from disk. A utility used only inside a `client:only`
+    // island reaches the stylesheet without any extra setting.
+    appSources: {dirs: ['src']},
 })
 ```
 
-Both calls take the **same** options object: the first says what to scan, the second what to emit. Let them drift and
-components arrive without styles.
+```astro
+---
+// src/layouts/BaseLayout.astro — the order of these three is load-bearing
+import '../styles/reset.css'   // @import '@unocss/reset/tailwind-compat.css' layer(reset);
+import 'virtual:granum.css'    // five cascade layers, granum.*
+import '../styles/theme.css'   // your own, unlayered — and therefore the winner
+---
+```
+
+**The order of the CSS imports decides the cascade.** Unlayered CSS beats any `@layer` regardless of specificity, so the
+browser reset has to live inside a layer declared *before* the granum ones — otherwise `button { color: inherit;
+padding: 0 }` from the reset overrides the component utilities, silently and without a warning.
 
 ## Documentation
 

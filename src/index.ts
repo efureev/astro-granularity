@@ -1,11 +1,11 @@
 import type { AstroIntegration } from 'astro'
-import { checkEnvironment, collectPresetNames, formatProblems, type EnvProblem } from './env-check'
+import { checkEnvironment, collectPluginNames, formatProblems, type EnvProblem } from './env-check'
 import { createVirtualI18nPlugin } from './i18n-plugin'
 import { resolveOptions, type GranularityAstroOptions } from './options'
 import { assertThemeScriptBudget, createThemeScript } from './theme-script'
 
 export type { DefaultTheme, GranularityAstroOptions, ResolvedOptions, SSRStringsMode, ThemeName } from './options'
-export { GRANULAR_PRESET_NAME, VUE_INTEGRATION_NAME } from './env-check'
+export { GRANUM_PLUGIN_NAME, VUE_INTEGRATION_NAME } from './env-check'
 export { assertPackageSpecifier, buildI18nModuleSource, VIRTUAL_I18N_ID } from './i18n'
 export { createVirtualI18nPlugin, type VirtualI18nInput, type VirtualI18nPlugin } from './i18n-plugin'
 export { deriveI18nBlocks, type GranularityI18nAdapterLike, type GranularityLocaleLoaders,
@@ -19,25 +19,6 @@ export { deriveI18nBlocks, type GranularityI18nAdapterLike, type GranularityLoca
 export { createThemeScript, resolveTheme, THEME_SCRIPT_BUDGET_BYTES } from './theme-script'
 
 /**
- * Читает конфиг UnoCSS, чтобы убедиться в наличии granular-пресета.
- *
- * `null` вместо пустого списка, когда конфига нет или он не читается: «пресета
- * нет» и «проверить не смогли» — разные новости, и сообщения у них разные.
- */
-async function loadPresetNames(root: string | URL): Promise<string[] | null> {
-  try {
-    const { loadConfig } = await import('@unocss/config')
-    const { config } = await loadConfig(typeof root === 'string' ? root : root.pathname)
-    if (!config)
-      return null
-    return collectPresetNames(config.presets)
-  }
-  catch {
-    return null
-  }
-}
-
-/**
  * Пакеты, чьи серверные входы обязаны быть встроены в бандл — в обоих серверных
  * окружениях Vite: `ssr` (dev-сервер, сборка под адаптером) и `prerender` (статика).
  *
@@ -48,13 +29,12 @@ async function loadPresetNames(root: string | URL): Promise<string[] | null> {
  * роняет статическую сборку, и потребитель ищет причину сам.
  *
  * Семейство `@feugene/granularity*` — по другой причине и не менее обязательно.
- * Часть компонентов несёт в собранном чанке статический `import '../styles.css'`
- * (в ядре 0.35.0 таких 19 из 78, включая `GrIcon`, `GrSelect`, `GrToaster`).
- * Оставшись внешним, такой модуль грузится Node, а тот падает
- * `ERR_UNKNOWN_FILE_EXTENSION` на `.css`. `GrButton` в этот список не входит —
- * поэтому дефект не виден, пока остров не заденет один из тех девятнадцати.
- * В dev-сервере всё то же самое, только окружение другое — `ssr` вместо
- * `prerender`; e2e пакета dev не поднимает, и там это не ловится.
+ * Компонент, несущий в собранном чанке статический `import '../styles.css'`,
+ * оставшись внешним, грузится Node, а тот падает `ERR_UNKNOWN_FILE_EXTENSION`
+ * на `.css`. Такие компоненты есть не всегда и не у всех, поэтому дефект не
+ * виден, пока остров не заденет именно такой. В dev-сервере всё то же самое,
+ * только окружение другое — `ssr` вместо `prerender`; e2e пакета dev не
+ * поднимает, и там это не ловится.
  */
 const NO_EXTERNAL = ['@feugene/astro-granularity', '@astrojs/vue', /^@feugene\/granularity/]
 
@@ -72,9 +52,6 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
           // отрисовки. Любая другая даёт кадр в чужой теме.
           injectScript('head-inline', script)
         }
-
-        if (resolved.injectStyleBundle)
-          injectScript('page-ssr', "import '@feugene/granularity/styles.css'")
 
         // Модуль порождается здесь, а не лежит файлом: состав лоадеров зависит
         // от опций, а `\0`-префикс закрывает его от разрешения по файловой системе.
@@ -104,13 +81,23 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
             updateConfig({ vite: { plugins: [plugin] } })
         }
 
+      },
+
+      /*
+       * Проверка окружения живёт здесь, а не в `astro:config:setup`, потому что
+       * читает `config.vite.plugins`, а список полон только после того, как
+       * отработали ВСЕ интеграции. В `setup` конфиг соседа, идущего следом, ещё
+       * не влит — проверка ругалась бы на исправный проект в зависимости от
+       * порядка интеграций. Побочная польза: `@astrojs/vue`, добавленный другой
+       * интеграцией, тоже виден.
+       */
+      'astro:config:done': async ({ config, logger }) => {
         const problems = checkEnvironment({
           integrationNames: config.integrations.map(i => i.name),
-          presetNames: await loadPresetNames(config.root),
+          pluginNames: await collectPluginNames(config.vite?.plugins).catch(() => null),
         })
         reportProblems(problems, resolved.strict, logger)
       },
-
     },
   }
 }
