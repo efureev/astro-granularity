@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v1.0.2] 2026-09-29
+
 ### Fixed
 
 - **Strings in the HTML now work under an adapter and with a concurrent build.**
