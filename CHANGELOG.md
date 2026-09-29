@@ -7,6 +7,26 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The strings snapshot no longer disappears under an adapter.** The middleware
+  built the snapshot before reading the response body. Under an adapter Astro
+  streams the response: `next()` returns before the page has rendered, so not a
+  single key had been translated yet and the snapshot came out empty — and an
+  empty snapshot is indistinguishable from "this page has no strings". The
+  feature switched itself off silently while staying enabled, and it did so on
+  prerendered routes too. A static build has no streaming, which is why the
+  ordering never showed. The body is now drained first.
+
+  A hybrid setup (`output: 'static'` plus an adapter) was the case that lost the
+  most: the guard that disables the snapshot for `output: 'server'` does not fire
+  there — correctly, since its routes are handled one at a time — so the snapshot
+  was expected to work, and did not.
+
+  The price is streaming for HTML responses: the page is now assembled in full
+  before it is sent. It was already lost on every page that had strings — a
+  snapshot cannot be injected into a stream.
+
 ## [v1.0.0] 2026-09-28
 
 The package moves to `@feugene/granularity` 1.0 and to the `@feugene/granum` 1.0 CSS

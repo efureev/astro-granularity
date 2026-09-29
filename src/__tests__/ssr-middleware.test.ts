@@ -79,11 +79,45 @@ describe('вложение снимка', () => {
     expect(result.headers.get('content-type')).toBe('text/html')
   })
 
-  it('пустой снимок оставляет ответ тем же объектом', async () => {
+  it('пустой снимок оставляет тело нетронутым', async () => {
     registerSnapshotBuilder(() => null)
     const response = html('т')
 
-    expect(await middleware(context('/ru/', 'ru'), async () => response)).toBe(response)
+    const result = await middleware(context('/ru/', 'ru'), async () => response)
+    const text = await result.text()
+
+    // Тем же ОБЪЕКТОМ ответ вернуться уже не может: чтобы узнать, есть ли что
+    // класть в снимок, тело приходится дочитать. Контракт — в содержимом.
+    expect(text).toBe('<html><head></head><body>т</body></html>')
+    expect(text).not.toContain(SNAPSHOT_ATTR)
+    expect(result.status).toBe(200)
+  })
+
+  /*
+   * Под адаптером Astro отдаёт страницу потоком, и `next()` возвращается
+   * раньше, чем она отрисована. Снимок, собранный до чтения тела, выходит
+   * пустым — и фича тихо выключается, оставаясь включённой.
+   *
+   * Здесь ключ «переводится» ровно в момент чтения тела: до него построитель
+   * снимка отдаёт `null`, как настоящий сборщик, пока не переведено ничего.
+   */
+  it('снимок собирается после того, как тело дочитано', async () => {
+    let rendered = false
+    registerSnapshotBuilder(locale => (rendered ? { locale, messages: { ru: { gr: { a: 'б' } } }, blocks: {} } : null))
+    const response = html('т')
+    const readBody = response.text.bind(response)
+    Object.defineProperty(response, 'text', {
+      value: async () => {
+        rendered = true
+        return readBody()
+      },
+    })
+
+    const result = await middleware(context('/ru/', 'ru'), async () => response)
+    const text = await result.text()
+
+    expect(text).toContain(SNAPSHOT_ATTR)
+    expect(text).toContain('"locale":"ru"')
   })
 
   it('не-HTML ответ проходит тем же объектом', async () => {

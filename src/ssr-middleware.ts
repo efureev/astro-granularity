@@ -58,16 +58,31 @@ export function createGranularitySSRMiddleware({ defaultLocale, locales }: SSRMi
       if (!(response.headers.get('content-type') ?? '').includes('text/html'))
         return response
 
-      const snapshot = buildPageSnapshot()
-      if (!snapshot)
-        return response
-
-      const html = injectSnapshot(await response.text(), serializeSnapshot(snapshot))
+      /*
+       * Тело дочитывается ДО сборки снимка, и порядок здесь несущий.
+       *
+       * Под адаптером Astro отдаёт ответ потоком: `next()` возвращается раньше,
+       * чем страница отрисована, и к этому моменту не переведено ещё ни одного
+       * ключа. Снимок, собранный тут, выходил пустым — а пустой снимок
+       * неотличим от «строк на странице нет», поэтому фича тихо выключалась,
+       * оставаясь включённой. На статической сборке потока нет, и расхождение
+       * ничем себя не обнаруживало.
+       *
+       * Платой идёт стриминг: страницу приходится собрать целиком. Он и так
+       * терялся на каждой странице со строками — вставить снимок в поток нечем.
+       */
+      const html = await response.text()
       const headers = new Headers(response.headers)
       // Длина тела изменилась. На статической сборке заголовок не выставлен и
-      // так, но за адаптером `output: 'server'` он отдал бы обрезанную страницу.
+      // так, но за адаптером он отдал бы обрезанную страницу.
       headers.delete('content-length')
-      return new Response(html, { status: response.status, statusText: response.statusText, headers })
+      const rest = { status: response.status, statusText: response.statusText, headers }
+
+      const snapshot = buildPageSnapshot()
+      if (!snapshot)
+        return new Response(html, rest)
+
+      return new Response(injectSnapshot(html, serializeSnapshot(snapshot)), rest)
     }
     finally {
       // В `finally`, а не после `next()`: страница, упавшая на рендере, иначе
