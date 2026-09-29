@@ -76,6 +76,7 @@
     "astro": ">=7.0.0 <8.0.0"
   },
   "devDependencies": {
+    "@astrojs/node": "^11.1.6",
     "@astrojs/vue": "^7.0.2",
     "@feugene/fint-i18n": "^0.7.0",
     "@feugene/granularity": "^1.0.0",
@@ -100,7 +101,10 @@
     "build": "vite build && tsc -p tsconfig.build.json",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "doctor": "granum doctor ./example/granum.config.mjs --strict",
+    "doctor": "yarn doctor:static && yarn doctor:ssr && yarn doctor:hybrid",
+    "doctor:static": "granum doctor ./examples/static/granum.config.mjs --strict",
+    "doctor:ssr": "granum doctor ./examples/ssr/granum.config.mjs --strict",
+    "doctor:hybrid": "granum doctor ./examples/hybrid/granum.config.mjs --strict",
     "test": "vitest --config vitest.config.ts",
     "test:run": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",

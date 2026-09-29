@@ -74,13 +74,15 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
-      # Симлинк `example/node_modules/@feugene/astro-granularity` → корень
-      # репозитория. Без него пример не резолвит пакет вовсе. Единственная
-      # зависимость примера — `link:..`, поэтому чужих пакетов эта установка
+      # Симлинк `examples/<стенд>/node_modules/@feugene/astro-granularity` →
+      # корень репозитория. Без него стенд не резолвит пакет вовсе. Единственная
+      # зависимость стенда — `link:../..`, поэтому чужих пакетов эта установка
       # не приносит и раскладку корня не трогает.
-      - name: Link the example to the package
-        run: yarn install
-        working-directory: example
+      - name: Link the stands to the package
+        run: |
+          for stand in static ssr hybrid; do
+            (cd "examples/$stand" && yarn install)
+          done
 
       # `channel: 'chromium'` в `playwright.config.ts` — полный сборочный
       # браузер: headless-shell не отдаёт кадры `Page.startScreencast`, и гейт
@@ -88,8 +90,8 @@ jobs:
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 
-      # Порядок несущий: `example/` резолвит пакет из `dist/` через симлинк, и
-      # без свежей сборки e2e зелено проверит прошлый код.
+      # Порядок несущий: стенды резолвят пакет из `dist/` через симлинк, и без
+      # свежей сборки e2e зелено проверит прошлый код.
       - name: Build package
         run: yarn build
 

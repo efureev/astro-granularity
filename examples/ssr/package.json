@@ -1,0 +1,12 @@
+{
+  "name": "astro-granularity-example-ssr",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "start": "node dist/server/entry.mjs"
+  },
+  "dependencies": {
+    "@feugene/astro-granularity": "link:../.."
+  }
+}

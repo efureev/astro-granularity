@@ -1,0 +1,15 @@
+---
+import OverviewPage from '@shared/components/OverviewPage.astro'
+import { defaultLocale, type Locale, locales } from '@shared/i18n/ui'
+
+/*
+ * `getStaticPaths()` здесь нет: при `output: 'server'` Astro его игнорирует, а
+ * параметр приходит из запроса. Список допустимых языков поэтому проверяется
+ * руками — иначе `/xx/` отрисовался бы пустой страницей вместо 404.
+ */
+const locale = Astro.params.lang as Locale
+if (!locales.includes(locale) || locale === defaultLocale)
+  return new Response(null, { status: 404 })
+---
+
+<OverviewPage locale={locale} />

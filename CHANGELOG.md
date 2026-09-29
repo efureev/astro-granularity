@@ -27,6 +27,19 @@ to [Semantic Versioning](https://semver.org/).
   before it is sent. It was already lost on every page that had strings — a
   snapshot cannot be injected into a stream.
 
+### Added
+
+- **`examples/` — one application in all three Astro output modes.** `static`,
+  `ssr` and `hybrid` share every line of their UI through `examples/shared`; a
+  stand owns only its two configs and thin route wrappers. Because the UI is
+  shared, a difference between the stands can only be the output mode, and two
+  browser gates hold that: `parity.spec.ts` compares all three by markup and
+  pixel for pixel, `dev.spec.ts` compares `astro dev` against the built site.
+
+  The parity gate paid for itself immediately: moving the shared UI one directory
+  up put it outside `appSources`, and 89 of 613 classes vanished from the CSS.
+  The markup still matched byte for byte — only the pixel comparison went red.
+
 ## [v1.0.0] 2026-09-28
 
 The package moves to `@feugene/granularity` 1.0 and to the `@feugene/granum` 1.0 CSS

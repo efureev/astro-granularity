@@ -5,9 +5,9 @@ yarn.lock
 junit-report.xml
 .env
 .eslintcache
-/example/dist
-/example/.astro
-/example/node_modules
+/examples/*/dist
+/examples/*/.astro
+/examples/*/node_modules
 /test-results
 /playwright-report
 /.idea

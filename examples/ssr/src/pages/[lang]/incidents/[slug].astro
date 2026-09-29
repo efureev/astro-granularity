@@ -1,0 +1,20 @@
+---
+import IncidentPage from '@shared/components/IncidentPage.astro'
+import { incidentBySlug } from '@shared/data/incidents'
+import { defaultLocale, type Locale, locales } from '@shared/i18n/ui'
+
+/*
+ * Запись ищется в момент запроса, а не выбирается из списка, построенного
+ * сборкой: слаг приходит из URL и может не существовать. Отсюда явный 404 —
+ * без него страница упала бы `RenderUndefinedEntryError`.
+ */
+const locale = Astro.params.lang as Locale
+if (!locales.includes(locale) || locale === defaultLocale)
+  return new Response(null, { status: 404 })
+
+const entry = await incidentBySlug(locale, Astro.params.slug)
+if (!entry)
+  return new Response(null, { status: 404 })
+---
+
+<IncidentPage locale={locale} entry={entry} />

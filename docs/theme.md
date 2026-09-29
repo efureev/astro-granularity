@@ -81,7 +81,7 @@ const { class: className } = Astro.props
 ```
 
 A working version, including accessible-name handling, lives in
-[`example/src/components/ThemeToggle.astro`](../example/src/components/ThemeToggle.astro).
+[`examples/shared/src/components/ThemeToggle.astro`](../examples/shared/src/components/ThemeToggle.astro).
 
 ### The accessible name describes the result
 

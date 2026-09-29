@@ -1,0 +1,10 @@
+---
+import IncidentsPage from '@shared/components/IncidentsPage.astro'
+import { defaultLocale, type Locale, locales } from '@shared/i18n/ui'
+
+const locale = Astro.params.lang as Locale
+if (!locales.includes(locale) || locale === defaultLocale)
+  return new Response(null, { status: 404 })
+---
+
+<IncidentsPage locale={locale} />

@@ -78,7 +78,7 @@ const { class: className } = Astro.props
 ```
 
 Рабочая версия, вместе с обработкой доступного имени, — в
-[`example/src/components/ThemeToggle.astro`](../example/src/components/ThemeToggle.astro).
+[`examples/shared/src/components/ThemeToggle.astro`](../examples/shared/src/components/ThemeToggle.astro).
 
 ### Доступное имя описывает результат
 

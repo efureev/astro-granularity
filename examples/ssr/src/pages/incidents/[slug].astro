@@ -1,0 +1,11 @@
+---
+import IncidentPage from '@shared/components/IncidentPage.astro'
+import { incidentBySlug } from '@shared/data/incidents'
+import { defaultLocale } from '@shared/i18n/ui'
+
+const entry = await incidentBySlug(defaultLocale, Astro.params.slug)
+if (!entry)
+  return new Response(null, { status: 404 })
+---
+
+<IncidentPage locale={defaultLocale} entry={entry} />

@@ -110,7 +110,7 @@ and the engine preflight, and it is there no matter how little you select. The s
 component adds roughly 1 KB. That shape is the point — the price of the design system is
 paid once, and components are cheap after it.
 
-"Components after closure" is what actually landed: naming nine in `example/` selects
+"Components after closure" is what actually landed: naming nine in `examples/` selects
 fifteen, because transitive dependencies come along by themselves.
 
 ### Working with the list

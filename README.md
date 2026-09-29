@@ -111,15 +111,19 @@ padding: 0 }` from the reset overrides the component utilities, silently and wit
 | [Reference](./docs/reference.md)             | Every option, export, subpath and peer range                               |
 | [Troubleshooting](./docs/troubleshooting.md) | Symptom → cause → fix                                                      |
 
-## Example
+## Examples
 
-`example/` holds a working application built on this integration: a service status board, three sections across three
-languages, 22 pages. Header and footer are islands; each page carries one island rendered on the server and one that is
-client-only.
+`examples/` holds the same application in all three Astro output modes — `static`, `ssr` and `hybrid`. It is one
+application, not three: layouts, components, styles, data and strings live in `examples/shared`, and a stand owns only
+its `astro.config.mjs`, its `granum.config.mjs` and thin route wrappers.
 
-Lighthouse reports **100 for accessibility, best practices and SEO**, and 99–100 for performance. Numbers, measurement
-conditions and what earns them are in
-[`example/README.md`](./example/README.md).
+That is the point. Because the UI is shared, a difference between the stands cannot be a difference between
+applications — it is always the output mode, and a browser gate compares the three pixel for pixel on every run.
+
+The application itself is a service status board: three sections across three languages, 22 pages. Header and footer are
+islands; each page carries one island rendered on the server and one that is client-only. Lighthouse reports **100 for
+accessibility, best practices and SEO**, and 99–100 for performance. Numbers, measurement conditions, and what each mode
+changes are in [`examples/README.md`](./examples/README.md).
 
 ## License
 
