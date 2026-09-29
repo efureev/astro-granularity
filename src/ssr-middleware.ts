@@ -1,4 +1,5 @@
-import { beginPage, buildPageSnapshot, endPage, injectSnapshot, serializeSnapshot } from './ssr'
+import { buildPageSnapshot, injectSnapshot, serializeSnapshot } from './ssr'
+import { runPage } from './ssr-store'
 
 /**
  * Контекст Astro описан структурно, а не импортом `APIContext`.
@@ -51,8 +52,12 @@ export function createGranularitySSRMiddleware({ defaultLocale, locales }: SSRMi
   ): Promise<Response> => {
     const locale = context.currentLocale ?? matchFirstSegment(context.url.pathname, locales) ?? defaultLocale
 
-    beginPage(locale)
-    try {
+    /*
+     * Весь рендер — внутри контекста страницы. Пары «открыть/закрыть» больше
+     * нет, и состоянию неоткуда утечь в соседний запрос: контекст уходит вместе
+     * со стеком, в том числе когда рендер упал.
+     */
+    return runPage(locale, async () => {
       const response = await next()
 
       if (!(response.headers.get('content-type') ?? '').includes('text/html'))
@@ -83,11 +88,6 @@ export function createGranularitySSRMiddleware({ defaultLocale, locales }: SSRMi
         return new Response(html, rest)
 
       return new Response(injectSnapshot(html, serializeSnapshot(snapshot)), rest)
-    }
-    finally {
-      // В `finally`, а не после `next()`: страница, упавшая на рендере, иначе
-      // оставила бы своё состояние следующей.
-      endPage()
-    }
+    })
   }
 }

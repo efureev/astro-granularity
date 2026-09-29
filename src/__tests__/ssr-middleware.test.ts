@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { endPage, readServerPageLocale, registerSnapshotBuilder, SNAPSHOT_ATTR } from '../ssr'
+import { readServerPageLocale, registerSnapshotBuilder, SNAPSHOT_ATTR } from '../ssr'
 import { createGranularitySSRMiddleware } from '../ssr-middleware'
 
 const middleware = createGranularitySSRMiddleware({ defaultLocale: 'en', locales: ['en', 'ru'] })
@@ -24,7 +24,6 @@ async function declaredLocale(pathname: string, currentLocale?: string): Promise
 
 describe('локаль страницы', () => {
   beforeEach(() => {
-    endPage()
     registerSnapshotBuilder(() => null)
   })
 
@@ -47,8 +46,8 @@ describe('локаль страницы', () => {
   })
 
   it('снимается после рендера, даже когда страница упала', async () => {
-    // Иначе состояние упавшей страницы досталось бы следующей, и та отрисовалась
-    // бы чужим языком.
+    // Контекст уходит вместе со стеком, поэтому состояние упавшей страницы
+    // не достаётся следующей ни при каком стечении обстоятельств.
     await expect(middleware(context('/ru/', 'ru'), async () => {
       throw new Error('рендер упал')
     })).rejects.toThrow('рендер упал')
@@ -58,10 +57,6 @@ describe('локаль страницы', () => {
 })
 
 describe('вложение снимка', () => {
-  beforeEach(() => {
-    endPage()
-  })
-
   it('кладёт блок в HTML и убирает `content-length`', async () => {
     registerSnapshotBuilder(locale => ({ locale, messages: { ru: { gr: { a: 'б' } } }, blocks: {} }))
     const response = new Response('<html><head></head><body>т</body></html>', {

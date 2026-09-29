@@ -5,8 +5,11 @@
  * причине, что и в `runtime.ts`: приложение вправе взять другой i18n-рантайм.
  * Middleware знает только форму снимка, а снимает его тот, кто создал инстанс.
  *
- * Модуль изоморфный: `beginPage`/`endPage`/`recordUsedKey` работают на сборке,
- * `readSnapshotFromDocument` — в браузере.
+ * Модуль изоморфный, и это определяет его устройство: он уезжает и в браузер,
+ * поэтому `node:async_hooks` здесь нет и быть не может. Хранилище состояния
+ * страницы **вставляет** серверная сторона — `ssr-store.ts`, который импортирует
+ * только `middleware.js`. До вставки все серверные функции отвечают «нечего»,
+ * что для браузера и есть правда.
  */
 
 /**
@@ -29,44 +32,54 @@ export type GranularityI18nSnapshot = {
 /** Атрибут-метка блока со снимком. */
 export const SNAPSHOT_ATTR = 'data-granularity-i18n'
 
-type PageState = { locale: string, used: Set<string> }
-
 /**
- * Состояние одной страницы сборки.
+ * Доступ к состоянию текущей страницы.
  *
- * Модульная переменная, а не поле инстанса: пререндер — один процесс, страницы
- * генерируются последовательно, и middleware оборачивает рендер каждой. При
- * `build.concurrency > 1` этого достаточно не было бы, поэтому интеграция при
- * таком конфиге фичу не включает вовсе.
+ * Интерфейс, а не реализация: хранилище живёт на `AsyncLocalStorage`, а он —
+ * `node:async_hooks`, которого в браузерном бандле быть не должно. Поэтому
+ * реализацию приносит серверная сторона, а шов знает только форму.
  */
-let page: PageState | null = null
-
-export function beginPage(locale: string): void {
-  page = { locale, used: new Set() }
+export type PageStore = {
+  /** Локаль текущей страницы или `null` вне её рендера. */
+  locale: () => string | null
+  /** Отметить ключ отрисованным. Вне рендера страницы — молча ничего. */
+  record: (key: string) => void
+  /** Ключи, отрисованные на текущей странице. */
+  used: () => readonly string[]
 }
 
-export function endPage(): void {
-  page = null
+let store: PageStore | null = null
+
+/**
+ * Вставить хранилище. Зовёт `ssr-store.ts` на своём импорте, до первого запроса.
+ *
+ * Вставка работает потому, что `ssr.js` — отдельный энтри сборки и существует
+ * ровно в одном экземпляре: `app.js` и `middleware.js` делят его. Две копии
+ * означали бы, что middleware кладёт состояние в одно хранилище, а остров
+ * читает из другого, — и снимок молча выходил бы пустым.
+ */
+export function installPageStore(implementation: PageStore): void {
+  store = implementation
 }
 
 /**
- * Локаль текущей страницы сборки, объявленная middleware.
+ * Локаль текущей страницы, объявленная middleware.
  *
  * `null` вне рендера страницы и всегда в браузере — там локаль берётся из
  * снимка либо из `<html lang>`.
  */
 export function readServerPageLocale(): string | null {
-  return page?.locale ?? null
+  return store?.locale() ?? null
 }
 
 /** Отметить ключ отрисованным. Вне рендера страницы — молча ничего. */
 export function recordUsedKey(key: string): void {
-  page?.used.add(key)
+  store?.record(key)
 }
 
 /** Ключи, отрисованные на текущей странице. Вне рендера — пусто. */
 export function usedKeys(): readonly string[] {
-  return page ? [...page.used] : []
+  return store?.used() ?? []
 }
 
 /** Построитель снимка регистрирует тот, кто создал инстанс i18n. */
@@ -85,9 +98,10 @@ export function registerSnapshotBuilder(fn: SnapshotBuilder): void {
  * трогать HTML незачем.
  */
 export function buildPageSnapshot(): GranularityI18nSnapshot | null {
-  if (!page || !builder)
+  const locale = readServerPageLocale()
+  if (locale === null || !builder)
     return null
-  return builder(page.locale, usedKeys())
+  return builder(locale, usedKeys())
 }
 
 /**

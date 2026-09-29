@@ -7,6 +7,38 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Strings in the HTML now work under an adapter and with a concurrent build.**
+  The page state — the route language and the log of rendered keys — was a
+  module-level variable, correct only where pages render one at a time. Under an
+  adapter requests are handled concurrently in one process, so one visitor's
+  language could have reached another's response, and the integration refused to
+  register the middleware at all: at `output: 'server'` and at
+  `build.concurrency > 1`. The markup paid for that in silence — a localized
+  route rendered core strings in the default language and carried no snapshot,
+  and hydration corrected both only after the first paint.
+
+  The state moved into an `AsyncLocalStorage` context, one per request, so
+  concurrent rendering cannot mix two pages up. Both refusals are gone with it,
+  and so are their warnings. Measured on the SSR stand: 40 concurrent requests
+  alternating `/` and `/ru/` — not one response took the other's language.
+
+  `node:async_hooks` does not reach the browser: `ssr.ts` stays isomorphic and
+  only declares the shape of the store, while the implementation is installed by
+  `ssr-store.ts`, which `middleware.js` alone imports.
+
+  The three stands are now compared with no exceptions at all: `parity.spec.ts`
+  holds `ssr` to the same byte-for-byte markup as `static`.
+
+### Changed
+
+- **The middleware assembles the page in full before sending it.** Streaming was
+  already lost on every page that carried strings — a snapshot cannot be injected
+  into a stream — and is now lost on every HTML response while the middleware is
+  on. Turn it off with `i18n.ssrStrings: false` if a streamed first byte matters
+  more than strings in the markup.
+
 ## [v1.0.1] 2026-09-29
 
 ### Fixed

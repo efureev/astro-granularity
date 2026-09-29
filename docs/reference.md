@@ -19,7 +19,7 @@ granularity({ /* … */ })
 | `i18n` | `{}` | Strings: `{ packages, locales, ssrStrings }`. `false` disables the loader module entirely |
 | `i18n.packages` | `[]` | Satellite packages besides the core. The core is always included |
 | `i18n.locales` | `[]` | Application languages. Empty pulls the `/i18n/all` aggregate — every language the package ships |
-| `i18n.ssrStrings` | `'used'` | Snapshot in the HTML: `'used'`, `'full'` or `false` |
+| `i18n.ssrStrings` | `'used'` | Snapshot in the HTML: `'used'`, `'full'` or `false`. Works in every output mode — the page state is per-request (`AsyncLocalStorage`) |
 | `strict` | `true` | Fail the build on environment problems instead of warning |
 
 Options are validated in `resolveOptions` and throw `TypeError` prefixed
