@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v1.0.1] 2026-09-29
+
 ### Fixed
 
 - **The strings snapshot no longer disappears under an adapter.** The middleware
