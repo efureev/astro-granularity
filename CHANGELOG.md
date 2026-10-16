@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v1.1.1] 2026-10-16
+
 ### Docs
 
 - **Install `@feugene/fint-i18n` along with the integration.** The quick start sets
