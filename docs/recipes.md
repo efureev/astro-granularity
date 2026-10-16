@@ -96,7 +96,7 @@ styling wins precisely because it declares no layer.
 
 ### What the selection costs
 
-Emitted CSS, measured against `@feugene/granularity@1.1.0` and `@feugene/granum@2.0.0`
+Emitted CSS, measured against `@feugene/granularity@1.1.0` and `@feugene/granum@2.1.0`
 with both themes on:
 
 | Selection | Components after closure | CSS | gzip | Classes |

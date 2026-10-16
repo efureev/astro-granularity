@@ -10,9 +10,9 @@ to [Semantic Versioning](https://semver.org/).
 ### Docs
 
 - `troubleshooting`: the cause of classes "without a rule" in the granum build line is corrected. It is not that
-  Astro inlines page CSS into `<style>` — granum sees inlined styles. granum 2.0.0 builds its report from the first
+  Astro inlines page CSS into `<style>` — granum sees inlined styles. granum 2.0 built its report from the first
   environment Astro builds, and under `output: 'server'` that is `prerender`, which holds no CSS; CSS inlined by
-  hand as a `?raw` string is not seen either. Static output, hybrid pages included, is accurate.
+  hand as a `?raw` string was not seen either. granum 2.1 fixes both, and the section now says to update to it.
 
 ## [v1.1.1] 2026-10-16
 

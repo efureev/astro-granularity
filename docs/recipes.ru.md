@@ -95,7 +95,7 @@ import '../styles/theme.css'   // своё, вне слоёв — и потом�
 
 ### Чего стоит выбор
 
-Эмитированный CSS, замерено против `@feugene/granularity@1.1.0` и `@feugene/granum@2.0.0`
+Эмитированный CSS, замерено против `@feugene/granularity@1.1.0` и `@feugene/granum@2.1.0`
 с обеими темами:
 
 | Выбор | Компонентов после замыкания | CSS | gzip | Классов |

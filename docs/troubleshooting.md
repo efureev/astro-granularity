@@ -131,18 +131,19 @@ for you. Utilities, plugins and types may still come from the root.
 ## The granum build line counts classes "without a rule"
 
 granum 2 reports a class from your markup that neither the engine nor the build's CSS
-defines. Two cases make that list longer than it should be, and the site renders correctly
-in both:
+defines: a typo, or a class whose rule is gone. On granum 2.0 the list also held false
+findings in two cases, and the site rendered correctly in both:
 
-- **`output: 'server'`.** granum 2.0.0 builds its report from the CSS of the first
+- **`output: 'server'`.** granum 2.0 built its report from the CSS of the first
   environment Astro builds. On a server build that is `prerender`, which holds no CSS, so
-  every class styled by your `.astro` `<style>` blocks lands in the list. With
-  `output: 'static'`, hybrid pages included, the list is accurate.
+  every class styled by your `.astro` `<style>` blocks landed in the list.
 - **CSS you inline yourself as a string** (`import css from './page.css?raw'` into
-  `<style set:html>`) is not a CSS asset of the build, and granum does not see it.
+  `<style set:html>`) is not a CSS asset of the build, and granum 2.0 did not see it.
 
-Both are reported to granum. Until they are fixed, check the list for typos rather than
-for a broken page.
+granum 2.1 fixes both: the report reads the CSS of every build environment, and a `.css`
+file inside `appSources` declares its classes even when it reaches the page as a string.
+Update `@feugene/granum` and `@feugene/granum-engine-wind` to `^2.1.0`; from then on a
+class in the list has no rule anywhere, and `granum report --strict` can gate CI.
 
 ## Build fails: `Rolldown failed to resolve import "@floating-ui/dom"`
 
