@@ -131,9 +131,18 @@ for you. Utilities, plugins and types may still come from the root.
 ## The granum build line counts classes "without a rule"
 
 granum 2 reports a class from your markup that neither the engine nor the build's CSS
-files define. Astro inlines the CSS of a page and of its components into `<style>`, and
-granum does not see those, so classes styled by your own `<style>` blocks show up there
-too. The site renders correctly; check the list for typos rather than for a broken page.
+defines. Two cases make that list longer than it should be, and the site renders correctly
+in both:
+
+- **`output: 'server'`.** granum 2.0.0 builds its report from the CSS of the first
+  environment Astro builds. On a server build that is `prerender`, which holds no CSS, so
+  every class styled by your `.astro` `<style>` blocks lands in the list. With
+  `output: 'static'`, hybrid pages included, the list is accurate.
+- **CSS you inline yourself as a string** (`import css from './page.css?raw'` into
+  `<style set:html>`) is not a CSS asset of the build, and granum does not see it.
+
+Both are reported to granum. Until they are fixed, check the list for typos rather than
+for a broken page.
 
 ## Build fails: `Rolldown failed to resolve import "@floating-ui/dom"`
 
