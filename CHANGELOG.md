@@ -7,6 +7,37 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Moves to the design system's 1.1 line, which is built with `@feugene/granum` 2.
+
+### Changed
+
+- **Peer ranges follow the design system: `@feugene/granum` `>=2.0.0 <3.0.0`,
+  `@feugene/granularity` `>=1.1.0 <2.0.0`, `@feugene/fint-i18n` `>=0.9.0 <1.0.0`.**
+  Core 1.1 and its companions require granum 2, so 1.0.2's `@feugene/granum <2.0.0`
+  made a fresh install fail with `ERESOLVE` under npm 7+ whatever granum you picked:
+  with granum 2 the integration's peer refused it, with granum 1 the core's did. The
+  lower bounds sit on the versions the gates run, as the release policy requires.
+- **The auto-import resolver is rooted at the Astro project.** `@feugene/unplugin-granularity`
+  1.1 finds the design system's packages in the project's `package.json` and their
+  components in their `exports` — the core and every companion through one resolver,
+  in any order. The integration now passes `config.root`, so `astro build --root …`
+  run from another directory finds the right `package.json` instead of the one in the
+  current working directory.
+- **`@feugene/granularity*` is no longer inlined into the server bundle.** The
+  packages' built chunks import neither `.css` nor granum, so Node loads them as they
+  are, in `prerender` and in `ssr` alike; inlining them only made every server build
+  longer. `@astrojs/vue` and the integration itself stay inlined — their server entries
+  import `virtual:` modules. Verified by the e2e of all three stands and by `astro dev`.
+
+### Docs
+
+- `troubleshooting`: `ERR_UNKNOWN_FILE_EXTENSION: ".css"` now points at an outdated
+  companion; new entries for `ComponentRootImportError` and for the granum build line
+  counting classes "without a rule" — Astro inlines page CSS into `<style>`, which
+  granum does not see.
+- `recipes`: the cost of a selection re-measured against core 1.1.0 and granum 2.0.0.
+- The static example's Lighthouse table and stylesheet weight re-measured.
+
 ## [v1.0.2] 2026-09-29
 
 ### Fixed

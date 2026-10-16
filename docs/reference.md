@@ -15,7 +15,7 @@ granularity({ /* … */ })
 | `defaultTheme` | `'system'` | Theme when nothing is stored: `'light'`, `'dark'` or `'system'` |
 | `themeStorageKey` | `'gr-theme'` | Storage key. Must match the core `useTheme` |
 | `injectThemeScript` | `true` | Emit the inline theme script into `<head>` |
-| `resolver` | `true` | Register the auto-import resolver |
+| `resolver` | `true` | Register the auto-import resolver: `GranularityResolver()` from `@feugene/unplugin-granularity`, rooted at the project, for the core and every companion in its `package.json` |
 | `i18n` | `{}` | Strings: `{ packages, locales, ssrStrings }`. `false` disables the loader module entirely |
 | `i18n.packages` | `[]` | Satellite packages besides the core. The core is always included |
 | `i18n.locales` | `[]` | Application languages. Empty pulls the `/i18n/all` aggregate — every language the package ships |

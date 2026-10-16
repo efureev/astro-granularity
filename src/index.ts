@@ -1,4 +1,5 @@
 import type { AstroIntegration } from 'astro'
+import { fileURLToPath } from 'node:url'
 import { checkEnvironment, collectPluginNames, formatProblems, type EnvProblem } from './env-check'
 import { createVirtualI18nPlugin } from './i18n-plugin'
 import { resolveOptions, type GranularityAstroOptions } from './options'
@@ -26,17 +27,14 @@ export { createThemeScript, resolveTheme, THEME_SCRIPT_BUDGET_BYTES } from './th
  * строкой делает `import { setup } from 'virtual:astro:vue-app'`, а входная
  * точка пререндера импортирует его голым спецификатором. Это его собственный
  * дефект упаковки, но чинить приходится здесь — иначе любой `.vue`-остров
- * роняет статическую сборку, и потребитель ищет причину сам.
+ * роняет статическую сборку, и потребитель ищет причину сам. Сама интеграция —
+ * по той же причине: `app.js` и `middleware.js` импортируют виртуальные модули.
  *
- * Семейство `@feugene/granularity*` — по другой причине и не менее обязательно.
- * Компонент, несущий в собранном чанке статический `import '../styles.css'`,
- * оставшись внешним, грузится Node, а тот падает `ERR_UNKNOWN_FILE_EXTENSION`
- * на `.css`. Такие компоненты есть не всегда и не у всех, поэтому дефект не
- * виден, пока остров не заденет именно такой. В dev-сервере всё то же самое,
- * только окружение другое — `ssr` вместо `prerender`; e2e пакета dev не
- * поднимает, и там это не ловится.
+ * Семейства `@feugene/granularity*` здесь нет: его `dist` импортирует только
+ * `vue`, `@floating-ui/dom` и свои же подпути, без `.css` и без granum, и Node
+ * грузит его как есть — и в сборке, и в `astro dev`.
  */
-const NO_EXTERNAL = ['@feugene/astro-granularity', '@astrojs/vue', /^@feugene\/granularity/]
+const NO_EXTERNAL = ['@feugene/astro-granularity', '@astrojs/vue']
 
 export default function granularity(options: GranularityAstroOptions = {}): AstroIntegration {
   const resolved = resolveOptions(options)
@@ -76,7 +74,7 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
           registerSSRStrings(addMiddleware)
 
         if (resolved.resolver) {
-          const plugin = await loadResolverPlugin(logger)
+          const plugin = await loadResolverPlugin(projectRoot(config.root), logger)
           if (plugin)
             updateConfig({ vite: { plugins: [plugin] } })
         }
@@ -103,6 +101,10 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
 }
 
 type Logger = { warn: (message: string) => void, error: (message: string) => void }
+
+function projectRoot(root: URL | string): string {
+  return typeof root === 'string' ? root : fileURLToPath(root)
+}
 
 /**
  * Middleware, кладущий строки в HTML.
@@ -131,13 +133,16 @@ function registerSSRStrings(
  * приведением. Граница узкая: значение уходит прямо в `updateConfig`.
  */
 // eslint-disable-next-line ts/no-explicit-any
-async function loadResolverPlugin(logger: Logger): Promise<any> {
+async function loadResolverPlugin(root: string, logger: Logger): Promise<any> {
   try {
     const [{ default: Components }, { GranularityResolver }] = await Promise.all([
       import('unplugin-vue-components/vite'),
       import('@feugene/unplugin-granularity'),
     ])
-    return Components({ resolvers: [GranularityResolver()], dts: false })
+    // Резолвер находит пакеты экосистемы в `package.json` проекта и их
+    // компоненты — в `exports`. Без `root` он читал бы `process.cwd()`, а
+    // `astro build --root <проект>` запускается откуда угодно.
+    return Components({ resolvers: GranularityResolver({ root }), dts: false })
   }
   catch {
     logger.warn(

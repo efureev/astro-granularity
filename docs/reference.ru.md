@@ -15,7 +15,7 @@ granularity({ /* … */})
 | `defaultTheme`      | `'system'`   | Тема, когда ничего не сохранено: `'light'`, `'dark'` или `'system'`                       |
 | `themeStorageKey`   | `'gr-theme'` | Ключ хранилища. Обязан совпадать с `useTheme` ядра                                        |
 | `injectThemeScript` | `true`       | Вставлять инлайн-скрипт темы в `<head>`                                                   |
-| `resolver`          | `true`       | Регистрировать резолвер авто-импорта                                                      |
+| `resolver`          | `true`       | Регистрировать резолвер авто-импорта: `GranularityResolver()` из `@feugene/unplugin-granularity` от корня проекта — для ядра и всех спутников из его `package.json` |
 | `i18n`              | `{}`         | Строки: `{ packages, locales, ssrStrings }`. `false` — не порождать модуль лоадеров вовсе |
 | `i18n.packages`     | `[]`         | Спутники помимо ядра. Ядро подключается всегда                                            |
 | `i18n.locales`      | `[]`         | Языки приложения. Пусто — берётся агрегат `/i18n/all` со всеми, что есть в пакете         |

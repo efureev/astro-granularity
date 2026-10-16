@@ -115,14 +115,25 @@ or `vite.environments.ssr`, keep `noExternal` intact.
 
 ## Build or dev server fails: `ERR_UNKNOWN_FILE_EXTENSION: ".css"`
 
-Part of the core's components carry a static `import '../styles.css'` in their built
-chunk. Left external, such a module is loaded by Node, which does not know `.css`. In a
-static build that is the `prerender` environment; in `astro dev` and under an adapter it
-is `ssr`.
+The design system's built chunks import no `.css` — a component's own stylesheet reaches
+the page through granum — so Node loads the packages as they are, in `prerender` and in
+`ssr` alike. This error means a companion package built before 1.0.1, when the build
+still stitched `import './styles.css'` into the chunk. Update it to 1.1.
 
-Also worked around by the integration, in both environments. `GrButton` is not among
-those components, which is why the defect stays invisible until a page touches one that
-is.
+## Build fails: `ComponentRootImportError`
+
+A component is imported from a package root: `import { GrButton } from
+'@feugene/granularity'`. granum 2 rejects that — its selection only sees a component by
+its subpath, and the root pulls in the whole package. Import from the subpath,
+`@feugene/granularity/components/GrButton`; in `.vue` the auto-import resolver writes it
+for you. Utilities, plugins and types may still come from the root.
+
+## The granum build line counts classes "without a rule"
+
+granum 2 reports a class from your markup that neither the engine nor the build's CSS
+files define. Astro inlines the CSS of a page and of its components into `<style>`, and
+granum does not see those, so classes styled by your own `<style>` blocks show up there
+too. The site renders correctly; check the list for typos rather than for a broken page.
 
 ## Build fails: `Rolldown failed to resolve import "@floating-ui/dom"`
 

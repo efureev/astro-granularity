@@ -96,16 +96,16 @@ styling wins precisely because it declares no layer.
 
 ### What the selection costs
 
-Emitted CSS, measured against `@feugene/granularity@1.0.0` and `@feugene/granum@1.0.0`
+Emitted CSS, measured against `@feugene/granularity@1.1.0` and `@feugene/granum@2.0.0`
 with both themes on:
 
 | Selection | Components after closure | CSS | gzip | Classes |
 | --- | --- | --- | --- | --- |
-| `GrButton` | 1 | 59 276 B | 13 067 B | 196 |
-| `GrButton`, `GrCard` | 2 | 60 258 B | 13 291 B | 220 |
-| `'all'` | 84 | 171 254 B | 28 878 B | 1 210 |
+| `GrButton` | 1 | 60 388 B | 13 267 B | 198 |
+| `GrButton`, `GrCard` | 2 | 61 370 B | 13 499 B | 222 |
+| `'all'` | 84 | 173 609 B | 29 396 B | 1 223 |
 
-Read the first row as the floor: about 58 KB of it is tokens, both themes, the base layer
+Read the first row as the floor: about 59 KB of it is tokens, both themes, the base layer
 and the engine preflight, and it is there no matter how little you select. The second
 component adds roughly 1 KB. That shape is the point — the price of the design system is
 paid once, and components are cheap after it.

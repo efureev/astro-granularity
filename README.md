@@ -20,7 +20,7 @@ project that does not fit its assumptions.
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
 | **Theme without a flash** | A synchronous inline script in `<head>` resolves the theme the same way the core `useTheme` does, and survives client-side navigation | `injectThemeScript: false` |
 | **Strings in the HTML**   | A middleware declares the route locale before the page renders and embeds a snapshot of the translations into `<head>`                | `i18n.ssrStrings: false`   |
-| **Auto-import**           | Registers the `unplugin-vue-components` resolver, so `<GrButton>` needs no import inside `.vue`                                       | `resolver: false`          |
+| **Auto-import**           | Registers the `unplugin-vue-components` resolver for the core and every companion in your `package.json`: `<GrButton>` needs no import inside `.vue` | `resolver: false`          |
 | **Environment check**     | Fails the build when `@astrojs/vue` or the `granum` Vite plugin is missing, naming the exact line to add                              | `strict: false`            |
 
 It does **not** rewrite your config. A missing `granum` plugin in `vite.plugins` or `@astrojs/vue` in `integrations`
@@ -28,7 +28,8 @@ produces a clear error, never a silent substitution — a config that reads one 
 debug.
 
 The CSS pipeline stays yours: `granum` is an ordinary Vite plugin, you register it and you import its stylesheet. The
-integration knows one thing about it — the plugin name — so the version of `granum` remains your choice.
+integration knows one thing about it — the plugin name. The version is set by the design system: core 1.1 is built
+with `granum` 2, and that is the range the integration declares.
 
 ## Install
 

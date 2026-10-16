@@ -5,9 +5,10 @@ import granularity from '../index'
  * Пакеты, которые обязаны попасть в серверный бандл, — в обоих окружениях.
  *
  * `prerender` — статическая сборка, `ssr` — dev-сервер и сборка под адаптером.
- * Одного `prerender` не хватало: `astro dev` шёл мимо списка, и первый же
- * компонент с `import '../styles.css'` в чанке ронял страницу. Гейт пакета
- * dev не поднимает, поэтому границу держит этот тест.
+ * Серверные входы интеграции и `@astrojs/vue` импортируют `virtual:`-модули, а
+ * их разрешает только бандлер: внешний модуль Node грузит сам и падает на
+ * протоколе `virtual:`. Гейт пакета dev не поднимает, поэтому границу держит
+ * этот тест.
  */
 type Environments = Record<string, { resolve?: { noExternal?: unknown[] } }>
 
@@ -32,15 +33,25 @@ const matches = (list: unknown[] | undefined, specifier: string): boolean =>
   (list ?? []).some(entry => entry instanceof RegExp ? entry.test(specifier) : entry === specifier)
 
 describe('noExternal: какие окружения получают список', () => {
-  it.each(['ssr', 'prerender'])('%s — семейство ядра, `@astrojs/vue` и сама интеграция', async (name) => {
+  it.each(['ssr', 'prerender'])('%s — `@astrojs/vue` и сама интеграция', async (name) => {
     const environments = await collectEnvironments()
     const list = environments[name]?.resolve?.noExternal
 
     expect(list, `окружение ${name} без noExternal`).toBeDefined()
-    expect(matches(list, '@feugene/granularity/components/GrIcon')).toBe(true)
-    expect(matches(list, '@feugene/granularity-charts')).toBe(true)
     expect(matches(list, '@astrojs/vue')).toBe(true)
     expect(matches(list, '@feugene/astro-granularity')).toBe(true)
+  })
+
+  /*
+   * Пакеты дизайн-системы Node грузит как есть: в их `dist` нет ни `.css`, ни
+   * granum. Встраивать их значит удлинять каждую серверную сборку ни за что —
+   * e2e трёх стендов и `astro dev` проходят и без этого.
+   */
+  it('семейство `@feugene/granularity*` остаётся внешним', async () => {
+    const environments = await collectEnvironments()
+
+    expect(matches(environments.ssr?.resolve?.noExternal, '@feugene/granularity/components/GrIcon')).toBe(false)
+    expect(matches(environments.prerender?.resolve?.noExternal, '@feugene/granularity-charts')).toBe(false)
   })
 
   it('`client` не трогается — там внешних модулей не бывает', async () => {
