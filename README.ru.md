@@ -36,15 +36,20 @@ CSS-конвейер остаётся вашим: `granum` — обычный п
 
 ```bash
 # yarn
-yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
+yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-i18n @feugene/granum @feugene/granum-engine-wind
 # npm
-npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
+npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-i18n @feugene/granum @feugene/granum-engine-wind
 # pnpm
-pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
+pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-i18n @feugene/granum @feugene/granum-engine-wind
 ```
 
 `@feugene/granum` собирает CSS, `@feugene/granum-engine-wind` — движок утилит, на котором он работает. Оба нужны только
 на сборке: в браузер из них не уезжает ничего.
+
+`@feugene/fint-i18n` везёт строки: на нём построен `@feugene/astro-granularity/app` из быстрого старта ниже. Это
+опциональный peer, и сам его не поставит ни один менеджер пакетов; без него `astro build` падает с `MISSING_EXPORT` на
+`createFintI18n`. Приложению со своим i18n-рантаймом не нужны ни он, ни `./app` — см.
+[рецепт 3](./docs/recipes.ru.md#3-свой-i18n-рантайм).
 
 ## Быстрый старт
 

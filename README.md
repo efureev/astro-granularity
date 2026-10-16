@@ -38,15 +38,20 @@ panel.
 
 ```bash
 # yarn
-yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
+yarn add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-i18n @feugene/granum @feugene/granum-engine-wind
 # npm
-npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
+npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-i18n @feugene/granum @feugene/granum-engine-wind
 # pnpm
-pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/granum @feugene/granum-engine-wind
+pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-i18n @feugene/granum @feugene/granum-engine-wind
 ```
 
 `@feugene/granum` builds the CSS and `@feugene/granum-engine-wind` is the utility engine it runs. Both are build-time
 only: nothing of them ships to the browser.
+
+`@feugene/fint-i18n` carries the strings: `@feugene/astro-granularity/app` from the quick start below is built on it.
+It is an optional peer, so no package manager installs it for you; without it `astro build` fails with
+`MISSING_EXPORT` on `createFintI18n`. An application with its own i18n runtime skips both it and `./app` — see
+[recipe 3](./docs/recipes.md#3-your-own-i18n-runtime).
 
 ## Quick start
 

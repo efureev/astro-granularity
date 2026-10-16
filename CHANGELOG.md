@@ -7,6 +7,14 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Docs
+
+- **Install `@feugene/fint-i18n` along with the integration.** The quick start sets
+  `appEntrypoint: '@feugene/astro-granularity/app'`, which is built on fint, but the install line left it out. fint is
+  an optional peer, so nothing installed it, and `astro build` failed with `MISSING_EXPORT` on `createFintI18n`. The
+  install line, `reference` and a new `troubleshooting` entry say so; the peer table in `reference` now shows the
+  1.1.0 ranges.
+
 ## [v1.1.0] 2026-10-16
 
 Moves to the design system's 1.1 line, which is built with `@feugene/granum` 2.

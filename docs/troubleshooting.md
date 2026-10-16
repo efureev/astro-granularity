@@ -143,6 +143,18 @@ A non-optional peer of the core. Install it:
 yarn add -D @floating-ui/dom
 ```
 
+## Build fails: `"createFintI18n" is not exported by "__vite-optional-peer-dep:@feugene/fint-i18n/core…"`
+
+`appEntrypoint: '@feugene/astro-granularity/app'` is set, and `@feugene/fint-i18n` is not installed. It is an optional
+peer, so no package manager adds it, and Vite replaces the missing module with an empty stub. Install it:
+
+```bash
+yarn add @feugene/fint-i18n
+```
+
+With your own i18n runtime, point `appEntrypoint` at your own setup instead — see
+[recipe 3](./recipes.md#3-your-own-i18n-runtime).
+
 ## Build fails on the theme script budget
 
 512 bytes, and it is a gate rather than a limit to raise. The script blocks the first

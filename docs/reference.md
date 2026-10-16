@@ -165,9 +165,9 @@ another integration is seen too.
 | --- | --- | --- |
 | `astro` | `>=7.0.0 <8.0.0` | no |
 | `@astrojs/vue` | `>=7.0.0 <8.0.0` | yes |
-| `@feugene/granularity` | `>=1.0.0 <2.0.0` | no |
-| `@feugene/granum` | `>=1.0.0 <2.0.0` | yes |
-| `@feugene/fint-i18n` | `>=0.7.0 <1.0.0` | yes |
+| `@feugene/granularity` | `>=1.1.0 <2.0.0` | no |
+| `@feugene/granum` | `>=2.0.0 <3.0.0` | yes |
+| `@feugene/fint-i18n` | `>=0.9.0 <1.0.0` | yes |
 
 `@feugene/granum` is optional because the integration never loads it — not statically,
 not dynamically. It only checks that the plugin is registered, by name. A project with no
@@ -184,7 +184,9 @@ tested against 7 only.
 
 `@astrojs/vue` is optional because a site that only wants the flash-free theme has no
 Vue islands at all. `@feugene/fint-i18n` is optional because an application may bring its
-own i18n runtime — see [recipe 3](./recipes.md#3-your-own-i18n-runtime).
+own i18n runtime — see [recipe 3](./recipes.md#3-your-own-i18n-runtime). `./app` is the one
+entry built on it: with `appEntrypoint: '@feugene/astro-granularity/app'` it has to be
+installed, and nothing installs an optional peer for you.
 
 ## What is not published
 
