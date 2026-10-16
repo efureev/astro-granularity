@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v1.1.0] 2026-10-16
+
 Moves to the design system's 1.1 line, which is built with `@feugene/granum` 2.
 
 ### Changed
