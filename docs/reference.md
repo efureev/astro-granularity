@@ -107,6 +107,7 @@ Build-time helpers, exported because they are testable in isolation:
   `THEME_SCRIPT_BUDGET_BYTES` — its budget, 512
 - `buildI18nModuleSource`, `assertPackageSpecifier`, `VIRTUAL_I18N_ID`
 - `createVirtualI18nPlugin` and its types
+- `createVirtualThemePlugin`, `buildThemeModuleSource`, `VIRTUAL_THEME_ID` — the `virtual:granularity/theme` module (`storageKey`, `cookie`) for an entry of your own
 - `GRANUM_PLUGIN_NAME`, `VUE_INTEGRATION_NAME`
 - Types: `GranularityAstroOptions`, `ResolvedOptions`, `SSRStringsMode`, `ThemeScriptOptions`
 

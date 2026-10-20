@@ -104,6 +104,7 @@ import '../styles/theme.css'   // своё, вне слоёв — и потом�
   в том виде, в каком он уходит в `injectScript('head-inline', …)`; `THEME_SCRIPT_BUDGET_BYTES` — его бюджет, 512
 - `buildI18nModuleSource`, `assertPackageSpecifier`, `VIRTUAL_I18N_ID`
 - `createVirtualI18nPlugin` и его типы
+- `createVirtualThemePlugin`, `buildThemeModuleSource`, `VIRTUAL_THEME_ID` — модуль `virtual:granularity/theme` (`storageKey`, `cookie`) для своей точки входа
 - `GRANUM_PLUGIN_NAME`, `VUE_INTEGRATION_NAME`
 - Типы: `GranularityAstroOptions`, `ResolvedOptions`, `SSRStringsMode`, `ThemeScriptOptions`
 

@@ -79,8 +79,13 @@ below. Miss a point by hand and the failure is silent:
 | A pair typed by hand | Works until the theme in `granum.config` changes, then silently matches nothing |
 | `data-theme` hard-coded in the layout | The script takes it for the server's pair and keeps it: neither the stored choice nor the system scheme ever applies |
 
-Your own CSS follows the same rule: a dark-page selector is `[data-theme='slate-dark']`,
-not `[data-theme='dark']`. Colours taken from `--gr-*` tokens need no selector at all.
+Your own CSS should not depend on the theme's name either. In this order: colours from the
+`--gr-*` roles need no selector at all; `dark:` utilities in markup follow every dark-scheme mode of
+the build; `light-dark(light, dark)` picks a colour by the mode's `color-scheme`; for what is not a
+colour, the pair's suffix `[data-theme$='-dark']` — never `[data-theme='dark']`. The full order and
+the trap of nested islands are in
+[`modes.md`](https://github.com/efureev/granularity/blob/main/packages/granularity/docs/modes.md#свой-css-под-режим)
+of the core; the example's `styles/theme.css` follows it.
 
 ## Writing your own toggle
 
@@ -142,11 +147,13 @@ mode changes, and re-applied after a `ClientRouter` swap replaces the markup.
 ### Inside a Vue island
 
 The core `useTheme()` stands on the same controller, key and pair, so a toggle in an
-island and one in Astro markup stay in step. One condition: when the build is anything
-other than `slate` with `light` and `dark`, the core has to be given the manifest from
-`virtual:granum/themes` where its mode state is created — without one it assumes exactly
-that. Where and how is in the core's
-[mode guide](https://github.com/efureev/granularity/blob/main/packages/granularity/docs/modes.md).
+island and one in Astro markup stay in step. The `@feugene/astro-granularity/app` entry hands it
+the build's manifest: in the browser once per page, as one state shared by every island (a mode
+switched in one reaches the rest), with the `themeStorageKey` key and the `themeCookie` cookie; on
+the server as the island's own state without storage, so that one page's mode does not leak into
+another. An entry of your own does the same itself — how is in the core's
+[mode guide](https://github.com/efureev/granularity/blob/main/packages/granularity/docs/modes.md):
+without a manifest the core assumes `slate` with `light` and `dark`.
 
 ## Client-side navigation
 

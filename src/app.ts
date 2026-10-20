@@ -1,10 +1,15 @@
 /// <reference path="../client.d.ts" />
+/// <reference types="@feugene/granum/client" />
 import type { LocaleLoaderSource } from '@feugene/fint-i18n/core'
 import type { App } from 'vue'
 import type { GranularityI18nSnapshot } from './ssr'
 import { blocks, defaultLocale, loaders, ssrStrings } from 'virtual:granularity/i18n'
+import { cookie, storageKey } from 'virtual:granularity/theme'
+import manifest from 'virtual:granum/themes'
 import { createFintI18n, getSSRState, hydrate } from '@feugene/fint-i18n/core'
 import { installI18n } from '@feugene/fint-i18n/vue'
+import { granularityThemePlugin, initThemeEarly } from '@feugene/granularity/composables/useTheme'
+import { createCookieStorage } from '@feugene/granum/runtime'
 import { readPageLocale } from './runtime'
 import { readServerPageLocale, readSnapshotFromDocument, recordUsedKey, registerSnapshotBuilder } from './ssr'
 
@@ -206,7 +211,34 @@ if (isServer && ssrStrings !== false)
   registerSnapshotBuilder(buildSnapshot)
 
 /** Точка входа для `vue({ appEntrypoint: '@feugene/astro-granularity/app' })`. */
+let clientThemeReady = false
+
+/**
+ * Режим для `useTheme()` островов — по манифесту сборки, а не по запасному
+ * `slate` ядра: у приложения своя тема или свой набор режимов, и пары чужого
+ * манифеста не совпали бы ни с одним селектором его CSS.
+ *
+ * В браузере состояние — модульное и одно на страницу: острова — независимые
+ * корни Vue с общим графом модулей, и режим, переключённый в одном, обязан
+ * дойти до остальных. Пару на корне к этому моменту уже поставил скрипт в
+ * `<head>`, и контроллер её узнаёт, а не выбирает заново.
+ *
+ * На сервере — состояние острова и без хранилища: модульное состояние на
+ * сборке общее для всех страниц, и режим одной утёк бы в другую.
+ */
+function installTheme(app: App): void {
+  if (isServer) {
+    app.use(granularityThemePlugin, { manifest, storageKey, persist: false })
+    return
+  }
+  if (clientThemeReady)
+    return
+  clientThemeReady = true
+  initThemeEarly({ manifest, storageKey, ...(cookie !== null ? { storage: createCookieStorage({ name: cookie }) } : {}) })
+}
+
 export default async function setup(app: App): Promise<void> {
+  installTheme(app)
   const i18n = getGranularityI18n()
 
   if (isServer) {

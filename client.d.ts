@@ -8,6 +8,13 @@
  * /// <reference types="@feugene/astro-granularity/client" />
  * ```
  */
+declare module 'virtual:granularity/theme' {
+  /** Ключ хранилища имени режима из опции `themeStorageKey`. */
+  export const storageKey: string
+  /** Cookie с именем режима из опции `themeCookie`; `null`, если режим живёт в `localStorage`. */
+  export const cookie: string | null
+}
+
 declare module 'virtual:granularity/i18n' {
   import type { GranularityLocaleLoaders } from '@feugene/astro-granularity/runtime'
 

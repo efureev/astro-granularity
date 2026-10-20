@@ -2,6 +2,7 @@ import type { AstroIntegration } from 'astro'
 import { fileURLToPath } from 'node:url'
 import { checkEnvironment, collectPluginNames, type EnvProblem, formatProblems, GRANUM_PLUGIN_NAME } from './env-check'
 import { createVirtualI18nPlugin } from './i18n-plugin'
+import { createVirtualThemePlugin } from './theme-plugin'
 import { resolveOptions, type GranularityAstroOptions, type ResolvedOptions } from './options'
 import { createThemeScript, findThemeManifest, THEME_SCRIPT_BUDGET_BYTES, themeScriptBytes } from './theme-script'
 
@@ -17,6 +18,7 @@ export { deriveI18nBlocks, type GranularityI18nAdapterLike, type GranularityLoca
 // `middleware.js`. Реестры модулей у них разные, значит и экземпляры состояния
 // тоже: `readServerPageLocale()`, взятый отсюда, всегда возвращал бы `null`.
 // Приложению шов доступен там, где он работает, — в `./runtime`.
+export { buildThemeModuleSource, createVirtualThemePlugin, VIRTUAL_THEME_ID, type VirtualThemeInput, type VirtualThemePlugin } from './theme-plugin'
 export { createThemeScript, THEME_SCRIPT_BUDGET_BYTES, type ThemeScriptOptions } from './theme-script'
 
 /**
@@ -53,9 +55,12 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
         // от опций, а `\0`-префикс закрывает его от разрешения по файловой системе.
         updateConfig({
           vite: {
-            plugins: [createVirtualI18nPlugin(resolved.i18n === false
-              ? false
-              : { ...resolved.i18n, defaultLocale: config.i18n?.defaultLocale ?? 'en' })],
+            plugins: [
+              createVirtualI18nPlugin(resolved.i18n === false
+                ? false
+                : { ...resolved.i18n, defaultLocale: config.i18n?.defaultLocale ?? 'en' }),
+              createVirtualThemePlugin({ storageKey: resolved.themeStorageKey, cookie: resolved.themeCookie }),
+            ],
             // Оба серверных окружения Vite, а не наследуемый `ssr.noExternal`:
             // Astro 6 перевёл сборку на Environments API. `ssr` — это dev-сервер и
             // сборка под адаптером (`output: 'server'`), `prerender` — статика.
