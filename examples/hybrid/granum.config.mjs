@@ -24,8 +24,7 @@ export default defineGranumConfig({
     },
     { provider: '@feugene/granularity-chrono', names: ['GrDatePicker'] },
   ],
-  theme: 'slate',
-  modes: { names: ['light', 'dark'] },
+  themes: [{ theme: 'slate', modes: ['light', 'dark'] }],
   /*
    * Классы разметки приложения берутся с диска. Это закрывает дыру, которая у
    * пресета v1 лечилась ручной строкой в `content.filesystem`: класс, живущий

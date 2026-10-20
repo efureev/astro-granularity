@@ -58,8 +58,7 @@ export default defineGranumConfig({
   components: [
     { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
   ],
-  theme: 'slate',
-  modes: { names: ['light', 'dark'] },
+  themes: [{ theme: 'slate', modes: ['light', 'dark'] }],
   appSources: { dirs: ['src'] },
 })
 ```
@@ -159,8 +158,7 @@ export default defineGranumConfig({
   engine: windEngine(),
   providers: ['@feugene/granularity'],
   components: 'all',
-  theme: 'slate',
-  modes: { names: ['light', 'dark'] },
+  themes: [{ theme: 'slate', modes: ['light', 'dark'] }],
   appSources: { dirs: ['src'] },
 })
 ```
@@ -248,8 +246,7 @@ export default defineGranumConfig({
     { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
     { provider: '@feugene/granularity-chrono', names: ['GrDatePicker'] },
   ],
-  theme: 'slate',
-  modes: { names: ['light', 'dark'] },
+  themes: [{ theme: 'slate', modes: ['light', 'dark'] }],
   appSources: { dirs: ['src'] },
 })
 ```
@@ -356,16 +353,18 @@ a server sees the request. Keep the mode in a cookie and the server sends
 ```astro
 ---
 // src/layouts/Base.astro
-import { modeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
+import { themeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
 import manifest from 'virtual:granum/themes'
 import { cookie } from 'virtual:granularity/theme'
 
 // No cookie, no attribute: the server cannot see the system scheme, the script decides.
 // A prerendered route has no request headers to read.
-const mode = cookie && !Astro.isPrerendered
-  ? modeFromCookie(manifest, Astro.request.headers.get('cookie'), cookie)
+const selection = cookie && !Astro.isPrerendered
+  ? themeFromCookie(manifest, Astro.request.headers.get('cookie'), cookie)
   : undefined
-const rootAttributes = mode ? themeRootAttributes(manifest, mode.name) : {}
+const rootAttributes = selection
+  ? themeRootAttributes(manifest, { theme: selection.theme.id, mode: selection.mode.name })
+  : {}
 ---
 <html lang={Astro.currentLocale} {...rootAttributes}>
 ```

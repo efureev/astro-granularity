@@ -58,8 +58,7 @@ export default defineGranumConfig({
   components: [
     { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
   ],
-  theme: 'slate',
-  modes: { names: ['light', 'dark'] },
+  themes: [{ theme: 'slate', modes: ['light', 'dark'] }],
   appSources: { dirs: ['src'] },
 })
 ```
@@ -156,8 +155,7 @@ export default defineGranumConfig({
   engine: windEngine(),
   providers: ['@feugene/granularity'],
   components: 'all',
-  theme: 'slate',
-  modes: { names: ['light', 'dark'] },
+  themes: [{ theme: 'slate', modes: ['light', 'dark'] }],
   appSources: { dirs: ['src'] },
 })
 ```
@@ -243,8 +241,7 @@ export default defineGranumConfig({
         {provider: '@feugene/granularity', names: ['GrButton', 'GrCard']},
         {provider: '@feugene/granularity-chrono', names: ['GrDatePicker']},
     ],
-    theme: 'slate',
-    modes: {names: ['light', 'dark']},
+    themes: [{theme: 'slate', modes: ['light', 'dark']}],
     appSources: {dirs: ['src']},
 })
 ```
@@ -350,16 +347,18 @@ export default defineConfig({
 ```astro
 ---
 // src/layouts/Base.astro
-import { modeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
+import { themeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
 import manifest from 'virtual:granum/themes'
 import { cookie } from 'virtual:granularity/theme'
 
 // Нет cookie — нет атрибута: системной схемы сервер не видит, решит скрипт.
 // У пререндеренного маршрута заголовков запроса нет.
-const mode = cookie && !Astro.isPrerendered
-  ? modeFromCookie(manifest, Astro.request.headers.get('cookie'), cookie)
+const selection = cookie && !Astro.isPrerendered
+  ? themeFromCookie(manifest, Astro.request.headers.get('cookie'), cookie)
   : undefined
-const rootAttributes = mode ? themeRootAttributes(manifest, mode.name) : {}
+const rootAttributes = selection
+  ? themeRootAttributes(manifest, { theme: selection.theme.id, mode: selection.mode.name })
+  : {}
 ---
 <html lang={Astro.currentLocale} {...rootAttributes}>
 ```

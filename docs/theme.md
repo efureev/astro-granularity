@@ -35,8 +35,8 @@ too; the integration only names the event, `astro:after-swap`.
 ## Where the pairs come from
 
 From the granum build, never from your hands. The modes, their pairs and the attribute
-are decided by `granum.config` — `theme: 'slate'` with `modes: { names: ['light',
-'dark'] }` gives `slate-light` and `slate-dark`. The integration asks the granum plugin
+are decided by `granum.config` — `themes: [{ theme: 'slate', modes: ['light', 'dark'] }]`
+gives `slate-light` and `slate-dark`. The integration asks the granum plugin
 in `vite.plugins` for them (`api.themeManifest`) during `astro:config:setup`. It is the
 same config the CSS is built from, so the script cannot set a pair the stylesheet does
 not have.

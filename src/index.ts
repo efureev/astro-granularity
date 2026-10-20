@@ -139,8 +139,9 @@ async function injectThemeScript(
   const found = await findThemeManifest(plugins, root)
   if (found.kind !== 'found')
     return found.kind
-  // Сборка без режимов: пару ставить нечем, и скрипт был бы пустой работой.
-  if (found.manifest.modes.length === 0)
+  // Основная тема без режимов: пару ставить нечем, и скрипт был бы пустой работой.
+  const main = found.manifest.themes.find(theme => theme.id === found.manifest.defaultTheme)
+  if (!main || main.modes.length === 0)
     return null
 
   const script = createThemeScript(found.manifest, {
@@ -150,7 +151,7 @@ async function injectThemeScript(
   const bytes = themeScriptBytes(script)
   if (bytes > THEME_SCRIPT_BUDGET_BYTES) {
     logger.warn(
-      `скрипт режима — ${bytes} Б при бюджете ${THEME_SCRIPT_BUDGET_BYTES} Б (режимов в сборке: ${found.manifest.modes.length}). `
+      `скрипт режима — ${bytes} Б при бюджете ${THEME_SCRIPT_BUDGET_BYTES} Б (пар в сборке: ${found.manifest.themes.reduce((sum, theme) => sum + theme.modes.length, 0)}). `
       + 'Он блокирует первую отрисовку: каждый режим добавляет к нему свою пару.',
     )
   }

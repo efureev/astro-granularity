@@ -86,8 +86,7 @@ export default defineGranumConfig({
     engine: windEngine(),
     providers: ['@feugene/granularity'],
     components: [{provider: '@feugene/granularity', names: ['GrButton', 'GrCard']}],
-    theme: 'slate',
-    modes: {names: ['light', 'dark']},
+    themes: [{theme: 'slate', modes: ['light', 'dark']}],
     // Свои исходники — с диска. Утилита, встречающаяся только внутри острова
     // `client:only`, доезжает до CSS без единой дополнительной настройки.
     appSources: {dirs: ['src']},

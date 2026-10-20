@@ -28,8 +28,8 @@
 
 ## Откуда берутся пары
 
-Из сборки granum, а не из ваших рук. Режимы, их пары и атрибут решает `granum.config`: `theme: 'slate'` с
-`modes: { names: ['light', 'dark'] }` дают `slate-light` и `slate-dark`. Интеграция спрашивает их у плагина granum в
+Из сборки granum, а не из ваших рук. Режимы, их пары и атрибут решает `granum.config`:
+`themes: [{ theme: 'slate', modes: ['light', 'dark'] }]` дают `slate-light` и `slate-dark`. Интеграция спрашивает их у плагина granum в
 `vite.plugins` (`api.themeManifest`) на этапе `astro:config:setup`. Это тот же конфиг, из которого собирается CSS,
 поэтому скрипт не может поставить пару, которой в таблице стилей нет.
 

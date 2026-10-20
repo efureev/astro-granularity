@@ -7,6 +7,13 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **granum 3.8 build themes.** Peer `@feugene/granum` — `>=3.8.0 <4.0.0`, `@feugene/granularity` —
+  `>=2.4.0 <3.0.0`. The theme manifest is `{ themes, defaultTheme, activation }`: the head script is
+  skipped when the default theme has no modes, and the budget warning counts the pairs of every built theme.
+  Recipes, the README and the example stands use `themes: [{ theme, modes }]` and `themeFromCookie`.
+
 ### Docs
 
 - Recipe 6 and the toggle in `theme` take the storage key and the cookie name from `virtual:granularity/theme` — the

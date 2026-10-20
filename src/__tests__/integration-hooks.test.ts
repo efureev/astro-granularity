@@ -55,15 +55,17 @@ describe('где живёт проверка окружения', () => {
 })
 
 describe('скрипт режима в `<head>`', () => {
-  const SLATE = {
-    theme: { id: 'slate', title: 'Slate' },
-    modes: [
-      { name: 'light', colorScheme: 'light' as const, value: 'slate-light' },
-      { name: 'dark', colorScheme: 'dark' as const, value: 'slate-dark' },
-    ],
-    defaultMode: 'light',
+  type Mode = { name: string, colorScheme: 'light' | 'dark', value: string }
+  const SLATE_MODES: Mode[] = [
+    { name: 'light', colorScheme: 'light', value: 'slate-light' },
+    { name: 'dark', colorScheme: 'dark', value: 'slate-dark' },
+  ]
+  const withModes = (modes: Mode[]) => ({
+    themes: [{ id: 'slate', title: 'Slate', modes, defaultMode: modes[0]?.name ?? 'light' }],
+    defaultTheme: 'slate',
     activation: { attribute: 'data-theme' },
-  }
+  })
+  const SLATE = withModes(SLATE_MODES)
 
   function granumPlugin(manifest: unknown, roots: string[] = []) {
     return { name: GRANUM_PLUGIN_NAME, api: { themeManifest: async (root?: string) => (roots.push(root ?? ''), manifest) } }
@@ -91,14 +93,14 @@ describe('скрипт режима в `<head>`', () => {
     expect(injected[0]![1]).toContain('slate-dark')
   })
 
-  it('`injectThemeScript: false` и сборка без режимов — скрипта нет', async () => {
+  it('`injectThemeScript: false` и основная тема без режимов — скрипта нет', async () => {
     expect((await setup([granumPlugin(SLATE)], { injectThemeScript: false })).injected).toEqual([])
-    expect((await setup([granumPlugin({ ...SLATE, modes: [] })])).injected).toEqual([])
+    expect((await setup([granumPlugin(withModes([]))])).injected).toEqual([])
   })
 
   it('сверх бюджета — предупреждение, а не падение', async () => {
-    const modes = Array.from({ length: 40 }, (_, i) => ({ name: `m${i}`, colorScheme: 'dark' as const, value: `slate-m${i}` }))
-    const { injected, warnings } = await setup([granumPlugin({ ...SLATE, modes })])
+    const modes = Array.from({ length: 40 }, (_, i): Mode => ({ name: `m${i}`, colorScheme: 'dark', value: `slate-m${i}` }))
+    const { injected, warnings } = await setup([granumPlugin(withModes(modes))])
     expect(injected).toHaveLength(1)
     expect(warnings.join('\n')).toMatch(/при бюджете/)
   })

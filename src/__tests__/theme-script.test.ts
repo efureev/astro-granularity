@@ -4,14 +4,18 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_STORAGE_KEY } from '../options'
 import { createThemeScript, findThemeManifest, THEME_SCRIPT_BUDGET_BYTES, themeScriptBytes } from '../theme-script'
 
-/** Манифест `virtual:granum/themes` для `theme: 'slate'` с режимами `light`/`dark`. */
+/** Манифест `virtual:granum/themes` для `themes: [{ theme: 'slate', modes: ['light', 'dark'] }]`. */
 const SLATE: GranumThemeManifest = {
-  theme: { id: 'slate', title: 'Slate' },
-  modes: [
-    { name: 'light', colorScheme: 'light', value: 'slate-light' },
-    { name: 'dark', colorScheme: 'dark', value: 'slate-dark' },
-  ],
-  defaultMode: 'light',
+  themes: [{
+    id: 'slate',
+    title: 'Slate',
+    modes: [
+      { name: 'light', colorScheme: 'light', value: 'slate-light' },
+      { name: 'dark', colorScheme: 'dark', value: 'slate-dark' },
+    ],
+    defaultMode: 'light',
+  }],
+  defaultTheme: 'slate',
   activation: { attribute: 'data-theme', value: '{theme}-{mode}' },
 }
 
@@ -168,12 +172,12 @@ describe('скрипт режима', () => {
 describe('манифест у плагина granum', () => {
   const plugin = (manifest: GranumThemeManifest) => ({
     name: 'granum:app',
-    api: { themeManifest: async (root?: string) => ({ ...manifest, theme: { id: root ?? '', title: '' } }) },
+    api: { themeManifest: async (root?: string) => ({ ...manifest, defaultTheme: root ?? '' }) },
   })
 
   it('берётся из `api.themeManifest` с корнем проекта, в том числе из вложенного списка', async () => {
     const found = await findThemeManifest([{ name: 'vite:vue' }, [Promise.resolve(plugin(SLATE))]], '/app')
-    expect(found).toMatchObject({ kind: 'found', manifest: { theme: { id: '/app' } } })
+    expect(found).toMatchObject({ kind: 'found', manifest: { defaultTheme: '/app' } })
   })
 
   it('различает «плагина нет» и «плагин без api»', async () => {

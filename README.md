@@ -89,8 +89,7 @@ export default defineGranumConfig({
     engine: windEngine(),
     providers: ['@feugene/granularity'],
     components: [{provider: '@feugene/granularity', names: ['GrButton', 'GrCard']}],
-    theme: 'slate',
-    modes: {names: ['light', 'dark']},
+    themes: [{theme: 'slate', modes: ['light', 'dark']}],
     // Your own sources, read from disk. A utility used only inside a `client:only`
     // island reaches the stylesheet without any extra setting.
     appSources: {dirs: ['src']},

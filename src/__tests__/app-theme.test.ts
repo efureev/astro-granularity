@@ -41,7 +41,7 @@ describe('режим островов', () => {
     await setup(createApp({}))
 
     const theme = useTheme()
-    expect(theme.theme).toBe('brand')
+    expect(theme.theme.value).toBe('brand')
     expect(theme.modes.map(mode => mode.name)).toEqual(['light', 'ocean'])
     theme.setMode('ocean')
     expect(attributes.get('data-theme')).toBe('brand-ocean')
@@ -55,7 +55,7 @@ describe('режим островов', () => {
     const app = createApp({})
     await setup(app)
     const theme = app.runWithContext(() => useTheme())
-    expect(theme.theme).toBe('brand')
+    expect(theme.theme.value).toBe('brand')
     expect(theme.mode.value).toBe('light')
     expect(theme.modes.map(mode => mode.value)).toEqual(['brand-light', 'brand-ocean'])
   })
