@@ -7,12 +7,58 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v2.0.0] 2026-10-20
+
+Moves to the design system's 2.0 line: themes and modes. A mode is now a **pair** on `<html>` —
+`data-theme="slate-dark"` — taken from the granum build's manifest, so core 2.0 is styled only by the pair, and 1.x
+sets `data-theme="dark"`, which no selector matches any more.
+
+### Changed
+
+- **Peer ranges follow the design system: `@feugene/granularity` `>=2.0.0 <3.0.0`, `@feugene/granum`
+  `>=3.2.0 <4.0.0`.** granum is no longer an optional peer: the integration imports `@feugene/granum/runtime` and
+  reads the app plugin's `api`.
+- **The mode script sets the pair from the build's manifest.** The code is granum's `createThemeScriptCode`, built
+  for the manifest — the pairs and the choice by scheme are constants, the cookie branch exists only with
+  `themeCookie` — and it follows the same rule as the controller behind the core `useTheme`: a pair already set by
+  the server stays; otherwise the cookie, `localStorage`, the system scheme and the theme's default mode. The re-run
+  on `astro:after-swap` is granum's `reapplyOn`, and the script throws nothing. 407 bytes on a two-mode theme, 497
+  with `themeCookie`. `localStorage['gr-theme']` holds the mode name (`dark`), not the pair, so a different theme in
+  the build does not reset the user's choice.
+- **The manifest comes from the granum plugin in `vite.plugins`**, through `api.themeManifest(root)`, during
+  `astro:config:setup` — from the same config as the CSS. A granum without it fails the build with
+  `granum-without-theme-manifest`; a plugin added by another integration after this one gets the
+  `theme-script-skipped` warning; a build without modes gets no script.
+- **`color-scheme` is no longer set inline.** The mode's CSS declares it (`[data-theme="slate-dark"] { color-scheme:
+  dark }`); an inline style would outlive a mode switched at runtime by `useTheme`, which only writes the attribute.
+- **`createThemeScript(manifest, { storageKey, cookie? })`** replaces `createThemeScript(storageKey, defaultTheme)`.
+- **The 512-byte budget is checked on a two-mode theme** by the package's tests and e2e. In the consumer's build
+  the size grows with its modes — each adds its pair — so past the budget it gets a warning rather than an error:
+  cutting modes to save bytes is not the integration's call.
+
+### Added
+
+- `themeCookie` — the cookie that holds the mode for SSR with granum's `createCookieStorage`; the script reads it
+  before `localStorage`.
+- The `ThemeScriptOptions` type.
+
+### Removed
+
+- **`defaultTheme`.** The modes and the default mode come from the theme in `granum.config`; without a stored choice
+  the script follows the system scheme. Passing the option from JavaScript throws a `TypeError` that says so instead
+  of being silently ignored.
+- `resolveTheme` and the `DefaultTheme` and `ThemeName` types.
+
 ### Docs
 
-- `troubleshooting`: the cause of classes "without a rule" in the granum build line is corrected. It is not that
-  Astro inlines page CSS into `<style>` — granum sees inlined styles. granum 2.0 built its report from the first
-  environment Astro builds, and under `output: 'server'` that is `prerender`, which holds no CSS; CSS inlined by
-  hand as a `?raw` string was not seen either. granum 2.1 fixes both, and the section now says to update to it.
+- `theme` is rewritten for modes: where the pairs come from, the two-point contract (the mode name under the key, the
+  pair on `<html>`), a toggle on granum's controller, and why `color-scheme` moved to the CSS.
+- `troubleshooting`: new entries for a page that flashes because the script is missing, components that stay light
+  under `data-theme="dark"`, a mode that does not survive a reload and one that resets after client-side navigation.
+  Classes "without a rule" in the granum build line are explained without the granum 2.0/2.1 history.
+- `recipes`: the granum configs use `theme` and `modes`. Recipe 6 no longer says the strings in the HTML are turned
+  off under `output: 'server'` — that stopped being true in 1.0.2 — and shows a mode kept in a cookie on the server.
+- `reference`: the options, the root exports, the six environment codes and the peer ranges of 2.0.
 
 ## [v1.1.1] 2026-10-16
 
