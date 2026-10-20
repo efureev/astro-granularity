@@ -4,44 +4,89 @@
 
 ## Why an inline script at all
 
-On a static build the HTML is identical for every visitor, so `data-theme` can only be
-set by code running in the browser — and it has to run **before the first paint**.
-Anything deferred, bundled or module-scoped is too late: the page renders light, then
-repaints in front of the reader.
+The theme is chosen at build time, the mode at run time. The core switches modes by one
+attribute on `<html>` — a **pair** of the build's theme and the mode,
+`data-theme="slate-dark"`. On a static build the HTML is identical for every visitor, so
+the pair can only be set by code running in the browser — and it has to run **before the
+first paint**. Anything deferred, bundled or module-scoped is too late: the page renders
+light, then repaints in front of the reader.
 
-The integration emits a synchronous inline `<script>` into `<head>`. Roughly 370 bytes,
-no `src`, no `defer`, no `async`. All three properties are load-bearing and all three are
+The integration emits a synchronous inline `<script>` into `<head>`. About 400 bytes, no
+`src`, no `defer`, no `async`. All three properties are load-bearing and all three are
 held by a gate that records the actual paint frames over CDP — a screenshot taken after
-`load` would show the settled theme and miss the flash entirely.
+`load` would show the settled mode and miss the flash entirely.
 
-The script resolves the theme exactly as the core `useTheme` does: stored choice →
-`prefers-color-scheme` → `defaultTheme`.
+The code is written by granum itself (`createThemeScriptCode` from
+`@feugene/granum/runtime`), so it picks the mode by the same rule as the granum controller
+the core `useTheme` stands on — the script and the runtime cannot disagree:
 
-## The contract has three points
+1. a pair already on `<html>` stays — the server put it there;
+2. otherwise the cookie, when `themeCookie` is set;
+3. otherwise the mode name in `localStorage`;
+4. otherwise the system scheme: the first mode whose `colorScheme` matches
+   `prefers-color-scheme`;
+5. otherwise the theme's default mode.
 
-Whoever *writes* the theme has to agree with the script that *reads* it. Miss any one and
-the failure is silent:
+The code is generated for your build: the pairs and the system-scheme choice are baked in
+as constants, and the cookie branch exists only when `themeCookie` is set. What Astro
+needs on top — a re-run after a client-side navigation — is granum's `reapplyOn` option
+too; the integration only names the event, `astro:after-swap`.
+
+## Where the pairs come from
+
+From the granum build, never from your hands. The modes, their pairs and the attribute
+are decided by `granum.config` — `theme: 'slate'` with `modes: { names: ['light',
+'dark'] }` gives `slate-light` and `slate-dark`. The integration asks the granum plugin
+in `vite.plugins` for them (`api.themeManifest`) during `astro:config:setup`. It is the
+same config the CSS is built from, so the script cannot set a pair the stylesheet does
+not have.
+
+That timing has two consequences:
+
+- **`granum(granumConfig)` has to sit directly in `vite.plugins` of the Astro config.**
+  A plugin that another integration adds later is not there yet when the script is
+  built: the CSS arrives, the script does not, and the build warns with
+  `theme-script-skipped`.
+- **granum has to be 3.2 or newer.** A plugin that does not hand the manifest out before
+  the build — no `api.themeManifest` — fails the build with
+  `granum-without-theme-manifest`, logged as an error under `strict: false`, because
+  without pairs the first frame flashes.
+
+A build without modes gets no script at all: there is no pair to set.
+
+## The contract has two points
+
+Whoever *writes* the mode has to agree with the script that *reads* it:
 
 ```js
-localStorage.setItem('gr-theme', theme)          // key = the `themeStorageKey` option
-document.documentElement.dataset.theme = theme   // 'light' | 'dark'
-document.documentElement.style.colorScheme = theme
+localStorage.getItem('gr-theme')                     // 'dark' — the mode name; key = `themeStorageKey`
+document.documentElement.getAttribute('data-theme')  // 'slate-dark' — the pair from the build manifest
 ```
+
+The name is stored rather than the pair, so a choice survives a change of theme in the
+build. `color-scheme` is no longer part of the contract: the mode's CSS declares it —
+`[data-theme="slate-dark"] { color-scheme: dark }` — because an inline style would outlive
+a mode switched at run time by `useTheme`, which only writes the attribute.
+
+Write both through granum's controller and the contract holds by construction — see
+below. Miss a point by hand and the failure is silent:
 
 | Missed | What happens |
 | --- | --- |
-| The key | The choice does not survive a reload |
-| `data-theme` | Nothing changes at all |
-| `color-scheme` | Native scrollbars, `<select>` and inputs stay light on a dark page |
+| The key — say, granum's own default `granum-theme` | The choice does not survive a reload: the script finds nothing under `gr-theme` and follows the system scheme |
+| The pair stored instead of the name | The same: `slate-dark` is not a mode, and the script skips it |
+| The mode name on `<html>` — `data-theme="dark"` | It matches no selector: components stay in the default mode, and so does `color-scheme` |
+| A pair typed by hand | Works until the theme in `granum.config` changes, then silently matches nothing |
+| `data-theme` hard-coded in the layout | The script takes it for the server's pair and keeps it: neither the stored choice nor the system scheme ever applies |
 
-The third is not cosmetic and the core does not set it — that is precisely why the
-integration does.
+Your own CSS follows the same rule: a dark-page selector is `[data-theme='slate-dark']`,
+not `[data-theme='dark']`. Colours taken from `--gr-*` tokens need no selector at all.
 
 ## Writing your own toggle
 
-The package ships the reader half only. A theme switch is application markup, and Vue is
-not worth booting for one button — a `<button>` and one delegated listener on `document`
-is the whole implementation.
+The package ships the reader half only. A mode switch is application markup, and Vue is
+not worth booting for one button — a `<button>`, one delegated listener and granum's
+controller over the build manifest are the whole implementation.
 
 ```astro
 ---
@@ -54,31 +99,36 @@ const { class: className } = Astro.props
 </button>
 
 <script>
-  function current(): 'light' | 'dark' {
-    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
-  }
+  import { createThemeController } from '@feugene/granum/runtime'
+  import manifest from 'virtual:granum/themes'
 
-  function apply(theme: 'light' | 'dark') {
-    const root = document.documentElement
-    root.dataset.theme = theme
-    root.style.colorScheme = theme
-    // Throws in Safari private mode. The theme must still switch — it simply
-    // will not survive a reload.
-    try {
-      localStorage.setItem('gr-theme', theme)
-    }
-    catch {}
+  function toggle() {
+    // A controller per click, not per module: `ClientRouter` swaps the document
+    // without re-running this module, and a fresh controller reads the mode off the pair.
+    // granum's own default key is `granum-theme`, while the script reads `gr-theme`.
+    const themes = createThemeController(manifest, { storageKey: 'gr-theme' })
+    const scheme = themes.modes().find(mode => mode.name === themes.mode)?.colorScheme
+    const next = themes.modes().find(mode => mode.colorScheme !== scheme)
+    if (next)
+      themes.setMode(next.name)
   }
 
   // Delegation, not a listener on the button: buttons can arrive later — from an
   // island, from a `ClientRouter` swap, from an inserted fragment.
   document.addEventListener('click', (event) => {
-    const target = (event.target as Element | null)?.closest('[data-theme-toggle]')
-    if (target)
-      apply(current() === 'dark' ? 'light' : 'dark')
+    if ((event.target as Element | null)?.closest('[data-theme-toggle]'))
+      toggle()
   })
 </script>
 ```
+
+`setMode` sets the pair and stores the name. The write that throws in Safari private mode
+is caught inside: the mode switches, it simply does not survive a reload. With more than
+two modes, `themes.cycle()` walks them in manifest order, and `themes.modes()` is ready to
+feed a menu.
+
+The types of `virtual:granum/themes` come from granum — one
+`/// <reference types="@feugene/granum/client" />` in `src/env.d.ts`.
 
 A working version, including accessible-name handling, lives in
 [`examples/shared/src/components/ThemeToggle.astro`](../examples/shared/src/components/ThemeToggle.astro).
@@ -87,7 +137,16 @@ A working version, including accessible-name handling, lives in
 
 "Switch to dark theme" on a light page, and the reverse. `aria-pressed` only confuses
 here — it is not obvious what would count as pressed. The name has to be updated when the
-theme changes, and re-applied after a `ClientRouter` swap replaces the markup.
+mode changes, and re-applied after a `ClientRouter` swap replaces the markup.
+
+### Inside a Vue island
+
+The core `useTheme()` stands on the same controller, key and pair, so a toggle in an
+island and one in Astro markup stay in step. One condition: when the build is anything
+other than `slate` with `light` and `dark`, the core has to be given the manifest from
+`virtual:granum/themes` where its mode state is created — without one it assumes exactly
+that. Where and how is in the core's
+[mode guide](https://github.com/efureev/granularity/blob/main/packages/granularity/docs/modes.md).
 
 ## Client-side navigation
 
@@ -101,29 +160,40 @@ const nonOverridableAstroAttributes = [...currentRoot.attributes].filter(
 )
 ```
 
-The fetched document is parsed, not executed, so it carries no `data-theme` — the inline
-script never ran on it. Without a subscription the theme is therefore lost on every
-client-side navigation.
+The fetched document is parsed, not executed, so unless a server put the pair into it,
+it carries no `data-theme` — the inline script never ran on it. Without a subscription
+the mode is therefore lost on every client-side navigation.
 
-The script handles this itself: the apply step is a named function, subscribed to
-`astro:after-swap`. Two details in that subscription matter.
+The script handles this itself: granum generates it with
+`reapplyOn: ['astro:after-swap']`, which subscribes the apply step to that event. It takes
+the same path as on the first load, so a pair that came with the server's HTML is left
+alone. Two details in that subscription matter.
 
-**On `document`, not `window`.** Astro dispatches
+**On `document`, not `window`, and only once.** Astro dispatches
 `document.dispatchEvent(new Event(name))`, and such an event does not bubble.
 
-**Inside its own `try/catch`.** An exception in `<head>` halts document parsing, so the
-script must never throw out of itself — including when `document` is somehow absent.
+**Inside a `try`.** An exception in `<head>` halts document parsing, so the generated
+code never throws out of itself — including when `document` is somehow absent.
 
 ## The budget is a gate
 
-512 bytes, checked during the consuming site's build and in a unit test. The script
-blocks the first paint by definition, so it grows on the owner's decision, not as a side
-effect of an edit. Currently 373 bytes with `defaultTheme: 'system'`.
+512 bytes on a theme with two modes, held by a unit test of the package and by the
+browser gate. The script blocks the first paint by definition, so it grows on the owner's
+decision, not as a side effect of an edit. Currently 407 bytes on `slate` with two modes,
+and 497 with `themeCookie`.
+
+In your build the size also depends on how many modes there are: each one brings its
+name and its pair. Past the budget your build gets a warning, not an error — whether a
+mode is worth its bytes is your decision, not the integration's.
 
 ## Options
 
 | Option | Default | Note |
 | --- | --- | --- |
-| `defaultTheme` | `'system'` | `'light'` and `'dark'` remove the `matchMedia` branch — and with it the `prefers-color-scheme` substring some tooling looks for |
-| `themeStorageKey` | `'gr-theme'` | Change it and every writer must change with it |
-| `injectThemeScript` | `true` | Turn off when the application sets `data-theme` itself, earlier |
+| `themeStorageKey` | `'gr-theme'` | Where the mode name is stored. Equals the core's `GR_THEME_STORAGE_KEY`; change it and every writer — `useTheme`, your toggle — must change with it |
+| `themeCookie` | — | A cookie holding the mode name, for SSR with granum's `createCookieStorage`. The script reads it before `localStorage`. See [recipe 6](./recipes.md#6-server-side-rendering) |
+| `injectThemeScript` | `true` | Turn off when the application sets the pair itself, earlier |
+
+There is no `defaultTheme`: the default mode belongs to the theme in `granum.config`, and
+without a stored choice the script follows the system scheme. Passing it from JavaScript
+throws a `TypeError` that says so instead of being silently ignored.

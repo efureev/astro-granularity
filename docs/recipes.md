@@ -12,7 +12,7 @@ style — pick the one whose constraints match yours.
 | [3](#3-your-own-i18n-runtime) | Your own i18n runtime | ✓ | your own | ✓ |
 | [4](#4-with-satellite-packages) | With satellite packages | ✓ | ✓ | ✓ |
 | [5](#5-multilingual-with-clientrouter) | Multilingual + `ClientRouter` | ✓ | ✓ | ✓ |
-| [6](#6-server-side-rendering) | Server-side rendering | ✓ | no | ✓ |
+| [6](#6-server-side-rendering) | Server-side rendering | ✓ | ✓ | ✓ |
 
 ---
 
@@ -58,7 +58,8 @@ export default defineGranumConfig({
   components: [
     { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
   ],
-  themes: { names: ['light', 'dark'] },
+  theme: 'slate',
+  modes: { names: ['light', 'dark'] },
   appSources: { dirs: ['src'] },
 })
 ```
@@ -97,7 +98,8 @@ styling wins precisely because it declares no layer.
 ### What the selection costs
 
 Emitted CSS, measured against `@feugene/granularity@1.1.0` and `@feugene/granum@2.1.0`
-with both themes on:
+with both modes on. The figures have not been re-taken on core 2 and granum 3, so read the
+shape from them rather than the exact bytes:
 
 | Selection | Components after closure | CSS | gzip | Classes |
 | --- | --- | --- | --- | --- |
@@ -157,13 +159,15 @@ export default defineGranumConfig({
   engine: windEngine(),
   providers: ['@feugene/granularity'],
   components: 'all',
-  themes: { names: ['light', 'dark'] },
+  theme: 'slate',
+  modes: { names: ['light', 'dark'] },
   appSources: { dirs: ['src'] },
 })
 ```
 
-All 84 components of the core, and 171 254 B of CSS against 60 258 B for two — every byte
-of it blocking the first paint, because this is the document's stylesheet.
+All the components of the core — 84 at the time of the measurement above — and
+171 254 B of CSS against 60 258 B for two, every byte of it blocking the first paint,
+because this is the document's stylesheet.
 
 **Worth it when the set of components genuinely is not known ahead of time**: an admin
 panel assembled from a schema, a page builder, a documentation site rendering arbitrary
@@ -244,7 +248,8 @@ export default defineGranumConfig({
     { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
     { provider: '@feugene/granularity-chrono', names: ['GrDatePicker'] },
   ],
-  themes: { names: ['light', 'dark'] },
+  theme: 'slate',
+  modes: { names: ['light', 'dark'] },
   appSources: { dirs: ['src'] },
 })
 ```
@@ -286,9 +291,9 @@ import { ClientRouter } from 'astro:transitions'
 </head>
 ```
 
-The integration handles both halves of what the swap breaks: the theme script
-re-subscribes via `astro:after-swap`, and the strings snapshot is re-read on every
-instance creation. You do not have to do anything for either.
+The integration handles both halves of what the swap breaks: the mode script re-applies
+the pair on `astro:after-swap`, and the strings snapshot is re-read on every instance
+creation. You do not have to do anything for either.
 
 **What you do have to do:** navigate through the router. A language switcher that assigns
 `window.location.href` performs a hard navigation, bypassing the router entirely — the
@@ -331,29 +336,51 @@ export default defineConfig({
   integrations: [
     vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
     granularity({
-      i18n: {
-        locales: ['en', 'ru'],
-        ssrStrings: false,  // silences the warning below
-      },
+      i18n: { locales: ['en', 'ru'] },
+      themeCookie: 'gr-theme',
     }),
   ],
   vite: { plugins: [granum(granumConfig)] },
 })
 ```
 
-**One feature switches itself off: strings in the HTML.** The page state the snapshot is
-built from is a module-level variable, and a server handles requests concurrently in one
-process — one request's `beginPage` would overwrite another's, and a page could be served
-with a neighbour's language. The integration detects `output: 'server'` and refuses,
-printing a warning with the fix rather than shipping the race.
+**Strings in the HTML work here as on a static build.** The page state the snapshot is
+built from lives in an `AsyncLocalStorage` context, one per request, so concurrent
+requests cannot mix two pages up — see
+[Strings](./i18n.md#where-the-feature-switches-itself-off).
 
-Setting `ssrStrings: false` acknowledges the decision and removes the warning.
-Translations then arrive the ordinary way — the client fetches the dictionary chunk after
-hydration, exactly as it did before that feature existed.
+**The mode can arrive in the HTML.** A static page can only get its pair in the browser;
+a server sees the request. Keep the mode in a cookie and the server sends
+`<html data-theme="slate-dark">` straight away:
 
-The refusal is blunt rather than clever: pages you mark `prerender = true` are rendered
-at build time and would be safe, but nothing in `astro:config:setup` can tell them apart
-from the rest, so the safe behaviour is chosen for all of them.
+```astro
+---
+// src/layouts/Base.astro
+import { modeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
+import manifest from 'virtual:granum/themes'
 
-**Everything else is unaffected**: the theme script, auto-import, the environment check
-and every component behave identically.
+// No cookie, no attribute: the server cannot see the system scheme, the script decides.
+// A prerendered route has no request headers to read.
+const mode = Astro.isPrerendered
+  ? undefined
+  : modeFromCookie(manifest, Astro.request.headers.get('cookie'), 'gr-theme')
+const rootAttributes = mode ? themeRootAttributes(manifest, mode.name) : {}
+---
+<html lang={Astro.currentLocale} {...rootAttributes}>
+```
+
+The toggle then writes the cookie instead of `localStorage` — the same controller as in
+[Theme](./theme.md#writing-your-own-toggle), with granum's cookie storage:
+
+```ts
+import { createCookieStorage, createThemeController } from '@feugene/granum/runtime'
+
+const themes = createThemeController(manifest, { storage: createCookieStorage({ name: 'gr-theme' }) })
+```
+
+`themeCookie` tells the inline script to read the same cookie before `localStorage`. Where
+the server has set the pair, the script leaves it alone; the cookie matters where it has
+not — on `prerender = true` routes, whose HTML is built once for everyone.
+
+**Everything else is unaffected**: auto-import, the environment check and every
+component behave identically.

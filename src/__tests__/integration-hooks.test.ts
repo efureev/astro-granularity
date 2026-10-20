@@ -53,3 +53,68 @@ describe('где живёт проверка окружения', () => {
     await expect(done?.(doneArgs([], []) as never)).resolves.not.toThrow()
   })
 })
+
+describe('скрипт режима в `<head>`', () => {
+  const SLATE = {
+    theme: { id: 'slate', title: 'Slate' },
+    modes: [
+      { name: 'light', colorScheme: 'light' as const, value: 'slate-light' },
+      { name: 'dark', colorScheme: 'dark' as const, value: 'slate-dark' },
+    ],
+    defaultMode: 'light',
+    activation: { attribute: 'data-theme' },
+  }
+
+  function granumPlugin(manifest: unknown, roots: string[] = []) {
+    return { name: GRANUM_PLUGIN_NAME, api: { themeManifest: async (root?: string) => (roots.push(root ?? ''), manifest) } }
+  }
+
+  async function setup(plugins: unknown[], options = {}) {
+    const injected: Array<[string, string]> = []
+    const warnings: string[] = []
+    const integration = hooks(options)
+    await integration['astro:config:setup']?.({
+      ...SETUP_ARGS,
+      config: { ...SETUP_ARGS.config, root: '/site', vite: { plugins } },
+      injectScript: (stage: string, content: string) => injected.push([stage, content]),
+      logger: { warn: (m: string) => warnings.push(m), error: () => {} },
+    } as never)
+    return { integration, injected, warnings }
+  }
+
+  it('строится по манифесту плагина granum с корнем проекта и встаёт `head-inline`', async () => {
+    const roots: string[] = []
+    const { injected } = await setup([granumPlugin(SLATE, roots)])
+    expect(roots).toEqual(['/site'])
+    expect(injected).toHaveLength(1)
+    expect(injected[0]![0]).toBe('head-inline')
+    expect(injected[0]![1]).toContain('slate-dark')
+  })
+
+  it('`injectThemeScript: false` и сборка без режимов — скрипта нет', async () => {
+    expect((await setup([granumPlugin(SLATE)], { injectThemeScript: false })).injected).toEqual([])
+    expect((await setup([granumPlugin({ ...SLATE, modes: [] })])).injected).toEqual([])
+  })
+
+  it('сверх бюджета — предупреждение, а не падение', async () => {
+    const modes = Array.from({ length: 40 }, (_, i) => ({ name: `m${i}`, colorScheme: 'dark' as const, value: `slate-m${i}` }))
+    const { injected, warnings } = await setup([granumPlugin({ ...SLATE, modes })])
+    expect(injected).toHaveLength(1)
+    expect(warnings.join('\n')).toMatch(/при бюджете/)
+  })
+
+  it('granum без `api.themeManifest` роняет сборку в `astro:config:done`', async () => {
+    const { integration } = await setup([{ name: GRANUM_PLUGIN_NAME }])
+    await expect(integration['astro:config:done']?.(doneArgs([VUE_INTEGRATION_NAME], [GRANUM_PLUGIN_NAME]) as never))
+      .rejects.toThrow('api.themeManifest')
+  })
+
+  it('плагин, добавленный позже интеграции, — предупреждение о пропущенном скрипте', async () => {
+    const { integration } = await setup([])
+    const warnings: string[] = []
+    const args = doneArgs([VUE_INTEGRATION_NAME], [GRANUM_PLUGIN_NAME]) as { logger: { warn: (m: string) => void } }
+    args.logger.warn = m => void warnings.push(m)
+    await integration['astro:config:done']?.(args as never)
+    expect(warnings.join('\n')).toMatch(/скрипт режима не вставлен/)
+  })
+})

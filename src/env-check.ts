@@ -5,7 +5,13 @@ export const VUE_INTEGRATION_NAME = '@astrojs/vue'
 
 export type EnvProblem = {
   level: 'error' | 'warn'
-  code: 'no-vue-integration' | 'no-granum-plugin' | 'duplicate-granum-plugin' | 'granum-plugins-unreadable'
+  code:
+    | 'no-vue-integration'
+    | 'no-granum-plugin'
+    | 'duplicate-granum-plugin'
+    | 'granum-plugins-unreadable'
+    | 'granum-without-theme-manifest'
+    | 'theme-script-skipped'
   message: string
 }
 
@@ -17,12 +23,12 @@ type PluginLike = { name?: string }
  * `granum()`, приехавший внутри пресета плагинов потребителя, дал бы ложную
  * тревогу.
  */
-export async function collectPluginNames(plugins: unknown, seen = new Set<unknown>()): Promise<string[]> {
+export async function collectPlugins(plugins: unknown, seen = new Set<unknown>()): Promise<PluginLike[]> {
   const resolved: unknown = await plugins
   if (!Array.isArray(resolved))
     return []
 
-  const names: string[] = []
+  const found: PluginLike[] = []
   for (const item of resolved) {
     const plugin: unknown = await item
     if (plugin === null || typeof plugin !== 'object' || seen.has(plugin))
@@ -30,14 +36,16 @@ export async function collectPluginNames(plugins: unknown, seen = new Set<unknow
     seen.add(plugin)
 
     if (Array.isArray(plugin)) {
-      names.push(...await collectPluginNames(plugin, seen))
+      found.push(...await collectPlugins(plugin, seen))
       continue
     }
-    const { name } = plugin as PluginLike
-    if (typeof name === 'string')
-      names.push(name)
+    found.push(plugin as PluginLike)
   }
-  return names
+  return found
+}
+
+export async function collectPluginNames(plugins: unknown): Promise<string[]> {
+  return (await collectPlugins(plugins)).flatMap(({ name }) => (typeof name === 'string' ? [name] : []))
 }
 
 export type EnvInput = {

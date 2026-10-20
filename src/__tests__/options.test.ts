@@ -4,8 +4,8 @@ import { DEFAULT_STORAGE_KEY, resolveOptions } from '../options'
 describe('resolveOptions', () => {
   it('без аргументов даёт рабочие умолчания', () => {
     expect(resolveOptions()).toEqual({
-      defaultTheme: 'system',
       themeStorageKey: DEFAULT_STORAGE_KEY,
+      themeCookie: undefined,
       injectThemeScript: true,
       resolver: true,
       i18n: { packages: [], locales: [], ssrStrings: 'used' },
@@ -57,9 +57,14 @@ describe('resolveOptions', () => {
     expect(() => resolveOptions({ i18n: 'all' as never })).toThrow(/ожидался объект/)
   })
 
-  it('отвергает неизвестную тему', () => {
-    // @ts-expect-error проверяем рантайм-валидацию
-    expect(() => resolveOptions({ defaultTheme: 'sepia' })).toThrow(/defaultTheme/)
+  it('`defaultTheme` из 1.x роняет с подсказкой, а не пропускается молча', () => {
+    // @ts-expect-error опции больше нет — проверяется вход из JS без типов
+    expect(() => resolveOptions({ defaultTheme: 'dark' })).toThrow(/defaultTheme больше нет/)
+  })
+
+  it('cookie режима — непустая строка', () => {
+    expect(resolveOptions({ themeCookie: 'gr-theme' }).themeCookie).toBe('gr-theme')
+    expect(() => resolveOptions({ themeCookie: '' })).toThrow(/themeCookie/)
   })
 
   it('отвергает пустой ключ хранилища', () => {

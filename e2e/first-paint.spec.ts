@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import sharp from 'sharp'
+import { THEME_SCRIPT_BUDGET_BYTES } from '../src/theme-script'
 
 /** Порог «тёмного»: сумма RGB. Канва примера — #0f172a (80) и #f8fafc (750). */
 const DARK_MAX = 200
@@ -71,7 +72,7 @@ test.describe('первый кадр', () => {
       expect(
         r + g + b,
         `кадр ${index + 1} из ${frames.length} светлый: rgb(${r}, ${g}, ${b}). `
-        + 'Скрипт темы отработал после первой отрисовки — это и есть мигание.',
+        + 'Скрипт режима отработал после первой отрисовки — это и есть мигание.',
       ).toBeLessThan(DARK_MAX)
     }
   })
@@ -108,16 +109,16 @@ test.describe('форма скрипта', () => {
 
     // Внешний файл, `defer` или `async` — каждое возвращает мигание,
     // и ни одно не видно в юнит-тестах.
-    expect(shape, 'скрипт темы не найден в <head>').not.toBeNull()
+    expect(shape, 'скрипт режима не найден в <head>').not.toBeNull()
     expect(shape!.inHead).toBe(true)
     expect(shape!.inline).toBe(true)
     expect(shape!.sync).toBe(true)
-    expect(shape!.bytes).toBeLessThanOrEqual(512)
+    expect(shape!.bytes).toBeLessThanOrEqual(THEME_SCRIPT_BUDGET_BYTES)
   })
 })
 
 test.describe('переключатель', () => {
-  test('меняет тему, сохраняет выбор и правит доступное имя', async ({ page }) => {
+  test('меняет режим, сохраняет выбор и правит доступное имя', async ({ page }) => {
     await page.goto('/')
     const button = page.locator('[data-gr-theme-toggle]')
     const before = await page.evaluate(() => document.documentElement.dataset.theme)
@@ -126,10 +127,14 @@ test.describe('переключатель', () => {
 
     const after = await page.evaluate(() => document.documentElement.dataset.theme)
     expect(after).not.toBe(before)
-    expect(await page.evaluate(() => localStorage.getItem('gr-theme'))).toBe(after)
-    expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe(after)
+    // На корне — пара, в хранилище — имя режима: смена темы сборки выбор не сбросит.
+    expect(after).toMatch(/^slate-(?:light|dark)$/)
+    expect(await page.evaluate(() => localStorage.getItem('gr-theme'))).toBe(after!.slice('slate-'.length))
+    // `color-scheme` ставит CSS режима, а не скрипт: без него нативные
+    // скроллбары и поля ввода остались бы светлыми на тёмной странице.
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe(after!.slice('slate-'.length))
     // Имя описывает результат нажатия, значит после переключения оно обязано измениться.
-    expect(await button.getAttribute('aria-label')).toContain(before === 'dark' ? 'dark' : 'light')
+    expect(await button.getAttribute('aria-label')).toContain(before === 'slate-dark' ? 'dark' : 'light')
   })
 
   test('выбор переживает перезагрузку без мигания', async ({ page }, testInfo) => {
@@ -147,13 +152,13 @@ test.describe('переключатель', () => {
     await page.goto('/')
     expect(
       await page.evaluate(() => document.documentElement.dataset.theme),
-      'сохранённая тема не применилась: скрипт темы не вставлен или не отработал',
-    ).toBe('dark')
+      'сохранённый режим не применился: скрипт режима не вставлен или не отработал',
+    ).toBe('slate-dark')
 
     const frames = await captureFrames(page, '/')
     for (const frame of frames) {
       const [r, g, b] = await topLeftPixel(frame)
-      expect(r + g + b, 'сохранённая тёмная тема мигнула светлым при перезагрузке').toBeLessThan(DARK_MAX)
+      expect(r + g + b, 'сохранённый тёмный режим мигнул светлым при перезагрузке').toBeLessThan(DARK_MAX)
     }
   })
 })
@@ -166,23 +171,23 @@ test.describe('переключатель', () => {
  * заведены по факту дефектов, найденных на этом переходе.
  */
 test.describe('клиентская навигация', () => {
-  test('тема переживает подмену документа', async ({ page }, testInfo) => {
+  test('режим переживает подмену документа', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-light', 'достаточно одного проекта')
 
     await page.goto('/')
     await page.locator('[data-gr-theme-toggle]').click()
-    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark')
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('slate-dark')
 
     // Переход именно ссылкой: её обрабатывает роутер, а не браузер.
     await page.locator('nav a', { hasText: 'Settings' }).click()
     await page.waitForURL(url => url.pathname === '/settings/')
 
-    // `data-theme` восстанавливает подписка скрипта на `astro:after-swap`:
-    // в полученном документе атрибута нет, скрипт на нём не исполнялся.
+    // Пару восстанавливает подписка скрипта на `astro:after-swap`: в
+    // полученном документе атрибута нет, скрипт на нём не исполнялся.
     await expect
       .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
-      .toBe('dark')
-    expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe('dark')
+      .toBe('slate-dark')
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('dark')
   })
 
   test('строки ядра следуют за языком без перезагрузки', async ({ page }, testInfo) => {

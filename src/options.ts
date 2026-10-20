@@ -1,20 +1,21 @@
-export type ThemeName = 'light' | 'dark'
-export type DefaultTheme = ThemeName | 'system'
-
 /**
- * Ключ и атрибут согласованы с `useTheme` ядра
- * (`packages/granularity/src/composables/useTheme.ts`). Расхождение означает,
- * что инлайн-скрипт и рантайм выберут разные темы, и страница мигнёт — ровно
- * то, ради чего скрипт и существует. Держится гейтом `theme-script.test.ts`.
+ * Ключ согласован с `GR_THEME_STORAGE_KEY` ядра: в нём лежит имя режима, и
+ * его же читает `useTheme`. Расхождение означает, что инлайн-скрипт и рантайм
+ * выберут разные режимы, и страница мигнёт — ровно то, ради чего скрипт и
+ * существует. Держится гейтом `theme-script.test.ts`.
  */
 export const DEFAULT_STORAGE_KEY = 'gr-theme'
 
 export type GranularityAstroOptions = {
-  /** Тема при отсутствии сохранённого выбора. */
-  defaultTheme?: DefaultTheme
-  /** Ключ хранилища выбора темы. */
+  /** Ключ `localStorage`, где лежит выбранный режим. */
   themeStorageKey?: string
-  /** Вставлять ли скрипт темы. Выключается, когда приложение ставит `data-theme` само. */
+  /**
+   * Cookie с выбранным режимом — когда приложение хранит его в cookie
+   * (`createCookieStorage` granum), чтобы сервер отдавал пару в HTML. Скрипт
+   * читает её раньше `localStorage`.
+   */
+  themeCookie?: string
+  /** Вставлять ли скрипт режима. Выключается, когда приложение ставит пару само. */
   injectThemeScript?: boolean
   /** Регистрировать ли резолвер авто-импорта. */
   resolver?: boolean
@@ -66,13 +67,14 @@ export type GranularityI18nOptions = {
 /** Объём снимка строк, который интеграция кладёт в HTML. */
 export type SSRStringsMode = 'used' | 'full' | false
 
-export type ResolvedOptions = Required<Omit<GranularityAstroOptions, 'i18n'>> & {
+export type ResolvedOptions = Required<Omit<GranularityAstroOptions, 'i18n' | 'themeCookie'>> & {
+  themeCookie: string | undefined
   i18n: { packages: string[], locales: string[], ssrStrings: SSRStringsMode } | false
 }
 
 const DEFAULTS: ResolvedOptions = {
-  defaultTheme: 'system',
   themeStorageKey: DEFAULT_STORAGE_KEY,
+  themeCookie: undefined,
   injectThemeScript: true,
   resolver: true,
   i18n: { packages: [], locales: [], ssrStrings: 'used' },
@@ -100,10 +102,12 @@ function resolveI18n(i18n: GranularityAstroOptions['i18n']): ResolvedOptions['i1
 }
 
 export function resolveOptions(options: GranularityAstroOptions = {}): ResolvedOptions {
-  const defaultTheme = options.defaultTheme ?? DEFAULTS.defaultTheme
-  if (defaultTheme !== 'light' && defaultTheme !== 'dark' && defaultTheme !== 'system') {
+  // Режимы и режим по умолчанию задаёт сборка granum, а не интеграция. Из JS
+  // без типов `defaultTheme` прошла бы молча и ничего бы не сделала.
+  if ('defaultTheme' in options) {
     throw new TypeError(
-      `[astro-granularity] defaultTheme: ожидалось 'light' | 'dark' | 'system', получено ${JSON.stringify(defaultTheme)}.`,
+      '[astro-granularity] defaultTheme больше нет: режимы и режим по умолчанию задаёт тема в granum.config, '
+      + 'без сохранённого выбора скрипт следует системной схеме.',
     )
   }
 
@@ -111,9 +115,13 @@ export function resolveOptions(options: GranularityAstroOptions = {}): ResolvedO
   if (typeof themeStorageKey !== 'string' || themeStorageKey.length === 0)
     throw new TypeError('[astro-granularity] themeStorageKey: ожидалась непустая строка.')
 
+  const themeCookie = options.themeCookie
+  if (themeCookie !== undefined && (typeof themeCookie !== 'string' || themeCookie.length === 0))
+    throw new TypeError('[astro-granularity] themeCookie: ожидалась непустая строка.')
+
   return {
-    defaultTheme,
     themeStorageKey,
+    themeCookie,
     injectThemeScript: options.injectThemeScript ?? DEFAULTS.injectThemeScript,
     resolver: options.resolver ?? DEFAULTS.resolver,
     i18n: resolveI18n(options.i18n),

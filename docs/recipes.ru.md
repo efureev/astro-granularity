@@ -12,7 +12,7 @@
 | [3](#3-свой-i18n-рантайм)           | Свой i18n-рантайм             | ✓  | свои     | ✓     |
 | [4](#4-со-спутниками)               | Со спутниками                 | ✓  | ✓       | ✓     |
 | [5](#5-многоязычный-с-clientrouter) | Многоязычный + `ClientRouter` | ✓  | ✓       | ✓     |
-| [6](#6-серверный-рендеринг)         | Серверный рендеринг           | ✓  | нет      | ✓     |
+| [6](#6-серверный-рендеринг)         | Серверный рендеринг           | ✓  | ✓       | ✓     |
 
 ---
 
@@ -58,7 +58,8 @@ export default defineGranumConfig({
   components: [
     { provider: '@feugene/granularity', names: ['GrButton', 'GrCard'] },
   ],
-  themes: { names: ['light', 'dark'] },
+  theme: 'slate',
+  modes: { names: ['light', 'dark'] },
   appSources: { dirs: ['src'] },
 })
 ```
@@ -96,7 +97,8 @@ import '../styles/theme.css'   // своё, вне слоёв — и потом�
 ### Чего стоит выбор
 
 Эмитированный CSS, замерено против `@feugene/granularity@1.1.0` и `@feugene/granum@2.1.0`
-с обеими темами:
+с обоими режимами. На ядре 2 и granum 3 замер не повторялся, поэтому читать из него стоит
+форму, а не точные байты:
 
 | Выбор | Компонентов после замыкания | CSS | gzip | Классов |
 | --- | --- | --- | --- | --- |
@@ -154,13 +156,14 @@ export default defineGranumConfig({
   engine: windEngine(),
   providers: ['@feugene/granularity'],
   components: 'all',
-  themes: { names: ['light', 'dark'] },
+  theme: 'slate',
+  modes: { names: ['light', 'dark'] },
   appSources: { dirs: ['src'] },
 })
 ```
 
-Все 84 компонента ядра и 171 254 Б CSS против 60 258 Б у двух — и каждый байт блокирует
-первую отрисовку, потому что это таблица стилей документа.
+Все компоненты ядра — на момент замера выше их было 84 — и 171 254 Б CSS против 60 258 Б
+у двух, и каждый байт блокирует первую отрисовку, потому что это таблица стилей документа.
 
 **Оправдано, когда набор компонентов заранее действительно неизвестен**: админка,
 собираемая по схеме, конструктор страниц, сайт документации, отрисовывающий
@@ -240,7 +243,8 @@ export default defineGranumConfig({
         {provider: '@feugene/granularity', names: ['GrButton', 'GrCard']},
         {provider: '@feugene/granularity-chrono', names: ['GrDatePicker']},
     ],
-    themes: {names: ['light', 'dark']},
+    theme: 'slate',
+    modes: {names: ['light', 'dark']},
     appSources: {dirs: ['src']},
 })
 ```
@@ -284,7 +288,7 @@ import { ClientRouter } from 'astro:transitions'
 </head>
 ```
 
-Обе половины того, что ломает подмена, интеграция закрывает сама: скрипт темы переподписывается через
+Обе половины того, что ломает подмена, интеграция закрывает сама: скрипт режима заново ставит пару на
 `astro:after-swap`, а снимок строк перечитывается на каждом создании инстанса. Делать для этого ничего не нужно.
 
 **А вот что нужно:** ходить через роутер. Переключатель языка, присваивающий
@@ -328,29 +332,47 @@ export default defineConfig({
   integrations: [
     vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
     granularity({
-      i18n: {
-        locales: ['en', 'ru'],
-        ssrStrings: false,  // убирает предупреждение ниже
-      },
+      i18n: { locales: ['en', 'ru'] },
+      themeCookie: 'gr-theme',
     }),
   ],
   vite: { plugins: [granum(granumConfig)] },
 })
 ```
 
-**Одна возможность выключается сама: строки в HTML.** Состояние страницы, из которого
-собирается снимок, лежит в модульной переменной, а сервер обрабатывает запросы
-параллельно в одном процессе — `beginPage` одного запроса затёр бы состояние другого, и
-страница могла бы уехать с чужим языком. Интеграция распознаёт `output: 'server'` и
-отказывается, печатая предупреждение с починкой вместо того, чтобы отгрузить гонку.
+**Строки в HTML работают здесь так же, как на статической сборке.** Состояние страницы, из которого собирается снимок,
+живёт в контексте `AsyncLocalStorage`, своём у каждого запроса, поэтому параллельные запросы две страницы не смешают —
+см. [Строки](./i18n.ru.md#где-механика-выключает-себя-сама).
 
-`ssrStrings: false` подтверждает решение и убирает предупреждение. Переводы после этого
-приезжают обычным путём — клиент догружает чанк словаря после гидратации, ровно как до
-появления этой возможности.
+**Режим может приехать в HTML.** Статическая страница получает пару только в браузере, а сервер видит запрос. Храните
+режим в cookie — и сервер сразу отдаст `<html data-theme="slate-dark">`:
 
-Отказ грубый, а не умный: страницы, помеченные `prerender = true`, отрисовываются на
-сборке и были бы безопасны, но отличить их в `astro:config:setup` нечем, поэтому
-безопасное поведение выбирается для всех.
+```astro
+---
+// src/layouts/Base.astro
+import { modeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
+import manifest from 'virtual:granum/themes'
 
-**Всё остальное не затронуто**: скрипт темы, авто-импорт, проверка окружения и все
-компоненты ведут себя точно так же.
+// Нет cookie — нет атрибута: системной схемы сервер не видит, решит скрипт.
+// У пререндеренного маршрута заголовков запроса нет.
+const mode = Astro.isPrerendered
+  ? undefined
+  : modeFromCookie(manifest, Astro.request.headers.get('cookie'), 'gr-theme')
+const rootAttributes = mode ? themeRootAttributes(manifest, mode.name) : {}
+---
+<html lang={Astro.currentLocale} {...rootAttributes}>
+```
+
+Переключатель тогда пишет cookie вместо `localStorage` — тот же контроллер, что в
+[Теме](./theme.ru.md#свой-переключатель), с хранилищем-cookie granum:
+
+```ts
+import { createCookieStorage, createThemeController } from '@feugene/granum/runtime'
+
+const themes = createThemeController(manifest, { storage: createCookieStorage({ name: 'gr-theme' }) })
+```
+
+`themeCookie` велит инлайн-скрипту читать ту же cookie раньше `localStorage`. Где пару поставил сервер, скрипт её не
+трогает; cookie нужна там, где не поставил, — на маршрутах с `prerender = true`, чей HTML собран один раз для всех.
+
+**Всё остальное не затронуто**: авто-импорт, проверка окружения и все компоненты ведут себя точно так же.

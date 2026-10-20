@@ -1,11 +1,11 @@
 import type { AstroIntegration } from 'astro'
 import { fileURLToPath } from 'node:url'
-import { checkEnvironment, collectPluginNames, formatProblems, type EnvProblem } from './env-check'
+import { checkEnvironment, collectPluginNames, type EnvProblem, formatProblems, GRANUM_PLUGIN_NAME } from './env-check'
 import { createVirtualI18nPlugin } from './i18n-plugin'
-import { resolveOptions, type GranularityAstroOptions } from './options'
-import { assertThemeScriptBudget, createThemeScript } from './theme-script'
+import { resolveOptions, type GranularityAstroOptions, type ResolvedOptions } from './options'
+import { createThemeScript, findThemeManifest, THEME_SCRIPT_BUDGET_BYTES, themeScriptBytes } from './theme-script'
 
-export type { DefaultTheme, GranularityAstroOptions, ResolvedOptions, SSRStringsMode, ThemeName } from './options'
+export type { GranularityAstroOptions, ResolvedOptions, SSRStringsMode } from './options'
 export { GRANUM_PLUGIN_NAME, VUE_INTEGRATION_NAME } from './env-check'
 export { assertPackageSpecifier, buildI18nModuleSource, VIRTUAL_I18N_ID } from './i18n'
 export { createVirtualI18nPlugin, type VirtualI18nInput, type VirtualI18nPlugin } from './i18n-plugin'
@@ -17,7 +17,7 @@ export { deriveI18nBlocks, type GranularityI18nAdapterLike, type GranularityLoca
 // `middleware.js`. Реестры модулей у них разные, значит и экземпляры состояния
 // тоже: `readServerPageLocale()`, взятый отсюда, всегда возвращал бы `null`.
 // Приложению шов доступен там, где он работает, — в `./runtime`.
-export { createThemeScript, resolveTheme, THEME_SCRIPT_BUDGET_BYTES } from './theme-script'
+export { createThemeScript, THEME_SCRIPT_BUDGET_BYTES, type ThemeScriptOptions } from './theme-script'
 
 /**
  * Пакеты, чьи серверные входы обязаны быть встроены в бандл — в обоих серверных
@@ -38,18 +38,16 @@ const NO_EXTERNAL = ['@feugene/astro-granularity', '@astrojs/vue']
 
 export default function granularity(options: GranularityAstroOptions = {}): AstroIntegration {
   const resolved = resolveOptions(options)
+  // Скрипт режима решается в `setup`, а судить, нормально ли это, можно только
+  // в `done`, когда список плагинов полон.
+  let themeScriptMissing: 'no-plugin' | 'no-api' | null = null
 
   return {
     name: '@feugene/astro-granularity',
     hooks: {
       'astro:config:setup': async ({ addMiddleware, config, updateConfig, injectScript, logger }) => {
-        if (resolved.injectThemeScript) {
-          const script = createThemeScript(resolved.themeStorageKey, resolved.defaultTheme)
-          assertThemeScriptBudget(script)
-          // `head-inline` — единственная точка, исполняющаяся синхронно до
-          // отрисовки. Любая другая даёт кадр в чужой теме.
-          injectScript('head-inline', script)
-        }
+        if (resolved.injectThemeScript)
+          themeScriptMissing = await injectThemeScript(config.vite?.plugins, projectRoot(config.root), resolved, injectScript, logger)
 
         // Модуль порождается здесь, а не лежит файлом: состав лоадеров зависит
         // от опций, а `\0`-префикс закрывает его от разрешения по файловой системе.
@@ -90,10 +88,14 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
        * интеграцией, тоже виден.
        */
       'astro:config:done': async ({ config, logger }) => {
-        const problems = checkEnvironment({
-          integrationNames: config.integrations.map(i => i.name),
-          pluginNames: await collectPluginNames(config.vite?.plugins).catch(() => null),
-        })
+        const pluginNames = await collectPluginNames(config.vite?.plugins).catch(() => null)
+        const problems = checkEnvironment({ integrationNames: config.integrations.map(i => i.name), pluginNames })
+        if (themeScriptMissing === 'no-api')
+          problems.push(GRANUM_WITHOUT_THEME_MANIFEST)
+        // Плагина не было в `setup`, а к `done` он появился — его добавила
+        // интеграция, идущая следом. CSS приедет, а скрипт режима — нет.
+        if (themeScriptMissing === 'no-plugin' && pluginNames?.includes(GRANUM_PLUGIN_NAME))
+          problems.push(THEME_SCRIPT_SKIPPED)
         reportProblems(problems, resolved.strict, logger)
       },
     },
@@ -101,6 +103,57 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
 }
 
 type Logger = { warn: (message: string) => void, error: (message: string) => void }
+
+const GRANUM_WITHOUT_THEME_MANIFEST: EnvProblem = {
+  level: 'error',
+  code: 'granum-without-theme-manifest',
+  message:
+    'плагин granum не отдаёт манифест режимов до сборки (`api.themeManifest`) — нужен @feugene/granum 3.2 или новее. '
+    + 'Без манифеста скрипт режима не знает пар, и первый кадр мигнёт.',
+}
+
+const THEME_SCRIPT_SKIPPED: EnvProblem = {
+  level: 'warn',
+  code: 'theme-script-skipped',
+  message:
+    'скрипт режима не вставлен: плагин granum добавлен позже этой интеграции, и на её настройке его ещё не было. '
+    + 'Поставьте `granum(granumConfig)` прямо в `vite.plugins` конфига Astro.',
+}
+
+/**
+ * Скрипт режима в `<head>`. Возвращает причину, по которой его нет, — оценит
+ * её `astro:config:done`, когда список плагинов полон.
+ */
+async function injectThemeScript(
+  plugins: unknown,
+  root: string,
+  resolved: ResolvedOptions,
+  injectScript: (stage: 'head-inline', content: string) => void,
+  logger: Logger,
+): Promise<'no-plugin' | 'no-api' | null> {
+  const found = await findThemeManifest(plugins, root)
+  if (found.kind !== 'found')
+    return found.kind
+  // Сборка без режимов: пару ставить нечем, и скрипт был бы пустой работой.
+  if (found.manifest.modes.length === 0)
+    return null
+
+  const script = createThemeScript(found.manifest, {
+    storageKey: resolved.themeStorageKey,
+    ...(resolved.themeCookie !== undefined ? { cookie: resolved.themeCookie } : {}),
+  })
+  const bytes = themeScriptBytes(script)
+  if (bytes > THEME_SCRIPT_BUDGET_BYTES) {
+    logger.warn(
+      `скрипт режима — ${bytes} Б при бюджете ${THEME_SCRIPT_BUDGET_BYTES} Б (режимов в сборке: ${found.manifest.modes.length}). `
+      + 'Он блокирует первую отрисовку: каждый режим добавляет к нему свою пару.',
+    )
+  }
+  // `head-inline` — единственная точка, исполняющаяся синхронно до
+  // отрисовки. Любая другая даёт кадр в чужом режиме.
+  injectScript('head-inline', script)
+  return null
+}
 
 function projectRoot(root: URL | string): string {
   return typeof root === 'string' ? root : fileURLToPath(root)

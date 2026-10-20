@@ -1,18 +1,19 @@
 ---
 /**
- * Переключатель темы без Vue.
+ * Переключатель режима без Vue.
  *
- * Тянуть остров ради одной кнопки бессмысленно: вся работа — прочитать
- * `data-theme`, записать обратное и сохранить выбор. Скрипт Astro поднимает
- * один на страницу независимо от числа кнопок.
+ * Тянуть остров ради одной кнопки бессмысленно: вся работа — узнать режим по
+ * паре на `<html>`, включить режим другой схемы и сохранить выбор. Это делает
+ * контроллер granum по манифесту сборки — пары руками не пишутся. Скрипт Astro
+ * поднимает один на страницу независимо от числа кнопок.
  */
 interface Props {
   class?: string
   /** Ключ хранилища. Должен совпадать с `themeStorageKey` интеграции. */
   storageKey?: string
-  /** Доступное имя, когда нажатие включит светлую тему. */
+  /** Доступное имя, когда нажатие включит светлый режим. */
   labelLight?: string
-  /** Доступное имя, когда нажатие включит тёмную. */
+  /** Доступное имя, когда нажатие включит тёмный. */
   labelDark?: string
 }
 
@@ -36,10 +37,20 @@ const {
 </button>
 
 <script>
+  import { createThemeController } from '@feugene/granum/runtime'
+  import manifest from 'virtual:granum/themes'
+
   const SELECTOR = '[data-gr-theme-toggle]'
 
-  function current(): 'light' | 'dark' {
-    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+  /**
+   * Режим другой схемы и контроллер, который его включит. Контроллер — на
+   * каждое обращение, а не один на модуль: `ClientRouter` подменяет документ,
+   * не переисполняя модуль, а свежий контроллер узнаёт режим по паре на корне.
+   */
+  function nextMode(storageKey: string) {
+    const controller = createThemeController(manifest, { storageKey })
+    const scheme = controller.modes().find(mode => mode.name === controller.mode)?.colorScheme
+    return { controller, next: controller.modes().find(mode => mode.colorScheme !== scheme) }
   }
 
   /**
@@ -48,25 +59,12 @@ const {
    * непонятно, что считать нажатым.
    */
   function syncLabels() {
-    const next = current() === 'dark' ? 'light' : 'dark'
     for (const el of document.querySelectorAll<HTMLElement>(SELECTOR)) {
-      const label = next === 'dark' ? el.dataset.labelDark : el.dataset.labelLight
+      const { next } = nextMode(el.dataset.storageKey ?? 'gr-theme')
+      const label = next?.colorScheme === 'dark' ? el.dataset.labelDark : el.dataset.labelLight
       if (label)
         el.setAttribute('aria-label', label)
     }
-  }
-
-  function apply(theme: 'light' | 'dark', storageKey: string) {
-    const root = document.documentElement
-    root.dataset.theme = theme
-    root.style.colorScheme = theme
-    // Запись бросает в приватном режиме Safari — тема при этом обязана
-    // переключиться, просто не переживёт перезагрузку.
-    try {
-      localStorage.setItem(storageKey, theme)
-    }
-    catch {}
-    syncLabels()
   }
 
   // Делегирование, а не слушатель на кнопку: кнопки могут приехать позже —
@@ -75,7 +73,12 @@ const {
     const target = (event.target as Element | null)?.closest<HTMLElement>(SELECTOR)
     if (!target)
       return
-    apply(current() === 'dark' ? 'light' : 'dark', target.dataset.storageKey ?? 'gr-theme')
+    // Запись выбора бросает в приватном режиме Safari — контроллер это ловит:
+    // режим переключится, просто не переживёт перезагрузку.
+    const { controller, next } = nextMode(target.dataset.storageKey ?? 'gr-theme')
+    if (next)
+      controller.setMode(next.name)
+    syncLabels()
   })
 
   syncLabels()

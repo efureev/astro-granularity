@@ -5,11 +5,11 @@
 An [Astro](https://astro.build) integration for the
 [`@feugene/granularity`](https://github.com/efureev/granularity) design system.
 
-One line in `astro.config.mjs` and the library is wired: the theme is applied **before the first paint**, component
+One line in `astro.config.mjs` and the library is wired: the mode is applied **before the first paint**, component
 strings ship inside the HTML, auto-import is registered, and a misconfigured environment fails the build with a message
 that names the fix instead of quietly serving an unstyled page.
 
-Requires **Astro 7**.
+Requires **Astro 7**, `@feugene/granularity` **2** and `@feugene/granum` **3**, no older than 3.2.
 
 ## What it actually does
 
@@ -18,18 +18,20 @@ project that does not fit its assumptions.
 
 |                           | What                                                                                                                                  | Off with                   |
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
-| **Theme without a flash** | A synchronous inline script in `<head>` resolves the theme the same way the core `useTheme` does, and survives client-side navigation | `injectThemeScript: false` |
+| **Mode without a flash**  | A synchronous inline script in `<head>` sets the mode pair from the build's manifest the same way the controller behind the core `useTheme` does, and survives client-side navigation | `injectThemeScript: false` |
 | **Strings in the HTML**   | A middleware declares the route locale before the page renders and embeds a snapshot of the translations into `<head>`                | `i18n.ssrStrings: false`   |
 | **Auto-import**           | Registers the `unplugin-vue-components` resolver for the core and every companion in your `package.json`: `<GrButton>` needs no import inside `.vue` | `resolver: false`          |
-| **Environment check**     | Fails the build when `@astrojs/vue` or the `granum` Vite plugin is missing, naming the exact line to add                              | `strict: false`            |
+| **Environment check**     | Fails the build when `@astrojs/vue` or the `granum` Vite plugin is missing, naming the exact line to add, or when granum is too old to hand out the mode manifest | `strict: false`            |
 
 It does **not** rewrite your config. A missing `granum` plugin in `vite.plugins` or `@astrojs/vue` in `integrations`
 produces a clear error, never a silent substitution — a config that reads one way and builds another costs days to
 debug.
 
 The CSS pipeline stays yours: `granum` is an ordinary Vite plugin, you register it and you import its stylesheet. The
-integration knows one thing about it — the plugin name. The version is set by the design system: core 1.1 is built
-with `granum` 2, and that is the range the integration declares.
+integration knows two things about the plugin: its name, and its `api.themeManifest` — the build's modes and their
+pairs. The mode script itself is written by granum's own generator from `@feugene/granum/runtime`. The version is set
+by the design system: core 2 is built with `granum` 3, and the integration declares 3.2 and newer — the first version
+whose generator re-applies the mode after Astro's client-side navigation.
 
 ## Install
 
@@ -45,8 +47,9 @@ npm i -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-
 pnpm add -D @feugene/astro-granularity @astrojs/vue @floating-ui/dom @feugene/fint-i18n @feugene/granum @feugene/granum-engine-wind
 ```
 
-`@feugene/granum` builds the CSS and `@feugene/granum-engine-wind` is the utility engine it runs. Both are build-time
-only: nothing of them ships to the browser.
+`@feugene/granum` builds the CSS and gives the integration the manifest of modes; `@feugene/granum-engine-wind` is the
+utility engine it runs. The engine is build-time only, and the only part of granum that can reach the browser is its
+mode controller, `@feugene/granum/runtime` — and only if your own toggle imports it.
 
 `@feugene/fint-i18n` carries the strings: `@feugene/astro-granularity/app` from the quick start below is built on it.
 It is an optional peer, so no package manager installs it for you; without it `astro build` fails with
@@ -86,7 +89,8 @@ export default defineGranumConfig({
     engine: windEngine(),
     providers: ['@feugene/granularity'],
     components: [{provider: '@feugene/granularity', names: ['GrButton', 'GrCard']}],
-    themes: {names: ['light', 'dark']},
+    theme: 'slate',
+    modes: {names: ['light', 'dark']},
     // Your own sources, read from disk. A utility used only inside a `client:only`
     // island reaches the stylesheet without any extra setting.
     appSources: {dirs: ['src']},
@@ -111,7 +115,7 @@ padding: 0 }` from the reset overrides the component utilities, silently and wit
 |                                              |                                                                            |
 |----------------------------------------------|----------------------------------------------------------------------------|
 | [Recipes](./docs/recipes.md)                 | Six ways to wire this up, from a two-component install to server rendering    |
-| [Theme](./docs/theme.md)                     | The three-point contract, writing your own toggle, client-side navigation  |
+| [Theme](./docs/theme.md)                     | Where the mode pairs come from, the two-point contract, your own toggle, client-side navigation |
 | [Strings](./docs/i18n.md)                    | How translations reach the HTML, snapshot modes, your own i18n runtime     |
 | [Islands](./docs/islands.md)                 | Hydration directives, overlays, `client:only`, shared state                |
 | [Reference](./docs/reference.md)             | Every option, export, subpath and peer range                               |

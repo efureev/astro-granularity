@@ -13,7 +13,7 @@
   --page-fg: #0f172a;
 }
 
-[data-theme='dark'] {
+[data-theme='slate-dark'] {
   --page-bg: #0f172a;
   --page-fg: #f8fafc;
 }
@@ -68,8 +68,8 @@ body {
  * инлайн-скриптом до первой отрисовки. Выбирать иконку скриптом значило бы
  * показать сначала не ту — ровно то мигание, ради которого скрипт и написан.
  */
-[data-theme='dark'] .theme-icon-dark,
-html:not([data-theme='dark']) .theme-icon-light {
+[data-theme='slate-dark'] .theme-icon-dark,
+html:not([data-theme='slate-dark']) .theme-icon-light {
   display: none;
 }
 

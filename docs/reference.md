@@ -12,9 +12,9 @@ granularity({ /* … */ })
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `defaultTheme` | `'system'` | Theme when nothing is stored: `'light'`, `'dark'` or `'system'` |
-| `themeStorageKey` | `'gr-theme'` | Storage key. Must match the core `useTheme` |
-| `injectThemeScript` | `true` | Emit the inline theme script into `<head>` |
+| `themeStorageKey` | `'gr-theme'` | `localStorage` key holding the mode name. Must match the core `useTheme` (`GR_THEME_STORAGE_KEY`) |
+| `themeCookie` | — | Cookie holding the mode name, for SSR with granum's `createCookieStorage`. The script reads it before `localStorage` |
+| `injectThemeScript` | `true` | Emit the inline mode script into `<head>`. Its pairs come from the granum plugin in `vite.plugins` |
 | `resolver` | `true` | Register the auto-import resolver: `GranularityResolver()` from `@feugene/unplugin-granularity`, rooted at the project, for the core and every companion in its `package.json` |
 | `i18n` | `{}` | Strings: `{ packages, locales, ssrStrings }`. `false` disables the loader module entirely |
 | `i18n.packages` | `[]` | Satellite packages besides the core. The core is always included |
@@ -25,6 +25,10 @@ granularity({ /* … */ })
 Options are validated in `resolveOptions` and throw `TypeError` prefixed
 `[astro-granularity]`. Validation happens at the boundary, not at the point of use, so a
 typo surfaces during config rather than in the middle of a build.
+
+The default mode is not an option of the integration: it belongs to the theme in
+`granum.config`, and without a stored choice the script follows the system scheme. See
+[Theme](./theme.md).
 
 ### Where the CSS comes from
 
@@ -57,10 +61,12 @@ regardless of specificity, so:
 
 Both failures are silent: no error, no warning, just a component that looks wrong.
 
-A project that wants the `--gr-*` scale and the theme switch for its own markup and uses
-no components at all needs neither the plugin nor the virtual module — one line,
-`import '@feugene/granularity/styles.css'`, does it. The environment check will still ask
-for the plugin, so turn it off with `strict: false`.
+A project that wants the `--gr-*` scale and the modes for its own markup and uses no
+components at all needs neither the plugin nor the virtual module for the CSS — one line,
+`import '@feugene/granularity/styles.css'`, does it. The mode script, though, is built
+from the plugin's manifest, so without the plugin there is none, and setting the pair
+(`slate-light` or `slate-dark` for that stylesheet) before the first paint is up to you.
+The environment check will still ask for the plugin, so turn it off with `strict: false`.
 
 ### Why `i18n.locales` matters
 
@@ -96,11 +102,13 @@ the subpath at runtime fails by design. It exists for the compiler, not the bund
 
 Build-time helpers, exported because they are testable in isolation:
 
-- `createThemeScript(storageKey, defaultTheme)`, `resolveTheme`, `THEME_SCRIPT_BUDGET_BYTES`
+- `createThemeScript(manifest, { storageKey, cookie? })` — the code of the mode script
+  for a granum manifest, as it goes into `injectScript('head-inline', …)`;
+  `THEME_SCRIPT_BUDGET_BYTES` — its budget, 512
 - `buildI18nModuleSource`, `assertPackageSpecifier`, `VIRTUAL_I18N_ID`
 - `createVirtualI18nPlugin` and its types
 - `GRANUM_PLUGIN_NAME`, `VUE_INTEGRATION_NAME`
-- Types: `GranularityAstroOptions`, `ResolvedOptions`, `DefaultTheme`, `ThemeName`, `SSRStringsMode`
+- Types: `GranularityAstroOptions`, `ResolvedOptions`, `SSRStringsMode`, `ThemeScriptOptions`
 
 Plus a re-export of the `./runtime` surface for convenience.
 
@@ -144,20 +152,29 @@ code in someone else's build is not a theoretical problem.
 
 ## The environment check
 
-Four codes, reported through `strict` — `true` fails the build, `false` logs and carries
-on:
+Six codes, reported through `strict` — `true` fails the build on an error, `false` logs
+it and carries on; a warning never fails the build:
 
 | Code | Level | When |
 | --- | --- | --- |
 | `no-vue-integration` | error | `@astrojs/vue` is not among the integrations: Astro has nothing to render `.vue` with |
 | `no-granum-plugin` | error | no `granum:app` in `vite.plugins`: no utilities, no tokens, no themes — components render bare |
 | `duplicate-granum-plugin` | error | two instances hold two resolutions and write two reports; the virtual modules come from whichever answered first |
+| `granum-without-theme-manifest` | error | the granum plugin does not hand out the mode manifest before the build (`api.themeManifest`): granum is older than the 3.2 the range asks for. Without pairs there is no mode script, and the first frame flashes |
 | `granum-plugins-unreadable` | warn | the plugin list could not be unwrapped. "Not checked" is not "not there" |
+| `theme-script-skipped` | warn | the granum plugin was not in `vite.plugins` yet when this integration set up — another integration added it later. The CSS arrives, the mode script does not |
+
+The two mode codes, `granum-without-theme-manifest` and `theme-script-skipped`, only
+appear with `injectThemeScript` on.
 
 **It runs in `astro:config:done`, not `astro:config:setup`.** The plugin list is only
 complete once every integration has run, so a check in `setup` would fail a healthy
 project depending on the order of integrations. A side benefit: `@astrojs/vue` added by
 another integration is seen too.
+
+The mode script is the one exception: it has to be injected in `setup`, so the manifest
+is looked up there. What it found is judged in `done`, against the full list — that is
+how a plugin added later is told apart from a missing one.
 
 ## Peer ranges
 
@@ -165,13 +182,14 @@ another integration is seen too.
 | --- | --- | --- |
 | `astro` | `>=7.0.0 <8.0.0` | no |
 | `@astrojs/vue` | `>=7.0.0 <8.0.0` | yes |
-| `@feugene/granularity` | `>=1.1.0 <2.0.0` | no |
-| `@feugene/granum` | `>=2.0.0 <3.0.0` | yes |
+| `@feugene/granularity` | `>=2.0.0 <3.0.0` | no |
+| `@feugene/granum` | `>=3.2.0 <4.0.0` | no |
 | `@feugene/fint-i18n` | `>=0.9.0 <1.0.0` | yes |
 
-`@feugene/granum` is optional because the integration never loads it — not statically,
-not dynamically. It only checks that the plugin is registered, by name. A project with no
-components has to install without it.
+`@feugene/granum` is required: the integration reads the plugin's `api.themeManifest` and
+has the mode script written by `createThemeScriptCode` from `@feugene/granum/runtime`. The
+floor is 3.2: the manifest `api` arrived in 3.1, but the generator's `reapplyOn`, which
+re-applies the mode after a `ClientRouter` swap, only in 3.2.
 
 **A floor sits at the version the gate runs on.** A range claiming support for something
 nobody tested is worse than a narrow one: the install succeeds and the breakage surfaces
@@ -182,7 +200,7 @@ Intermediate Astro majors are not supported by decision, not by omission: the in
 relies on `vite.environments.prerender`, which did not exist before Astro 6, and is
 tested against 7 only.
 
-`@astrojs/vue` is optional because a site that only wants the flash-free theme has no
+`@astrojs/vue` is optional because a site that only wants the flash-free mode has no
 Vue islands at all. `@feugene/fint-i18n` is optional because an application may bring its
 own i18n runtime — see [recipe 3](./recipes.md#3-your-own-i18n-runtime). `./app` is the one
 entry built on it: with `appEntrypoint: '@feugene/astro-granularity/app'` it has to be

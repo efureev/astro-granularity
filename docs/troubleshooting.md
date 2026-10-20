@@ -71,12 +71,10 @@ not send its slot to the server even when open.
 The snapshot did not arrive. In order:
 
 1. `i18n.ssrStrings: false` — switched off explicitly.
-2. A warning about `output: 'server'` or `build.concurrency` in the build log — the
-   feature refuses to run where requests or pages are handled in parallel.
-3. No `i18n` block in `astro.config.mjs` **and** an empty `i18n.locales` —
+2. No `i18n` block in `astro.config.mjs` **and** an empty `i18n.locales` —
    `Astro.currentLocale` is `undefined` and there is nothing to match a path segment
    against, so the language is always `defaultLocale`.
-4. The strings are read through `tm()` — those are absent from `'used'` by design and
+3. The strings are read through `tm()` — those are absent from `'used'` by design and
    arrive with the background fetch.
 
 Look for `<script type="application/json" data-granularity-i18n>` in the built page. No
@@ -90,19 +88,59 @@ page — on the example that is 8.6 KB of JSON against 303 B for `'used'`. It al
 the block loaded, so the dictionary stops being a shared cacheable chunk. For a
 multi-page site that is a loss twice over.
 
-## "The theme resets after a client-side navigation"
+## "The page flashes: the mode script is missing"
 
-Expected if you wrote your own toggle without an `astro:after-swap` subscription:
+The built page has no inline script with the pairs in its `<head>`. The build log says
+why:
+
+1. **The `theme-script-skipped` warning.** The granum plugin was added by another
+   integration that runs after `astro-granularity`: when this one set up, the plugin was
+   not in `vite.plugins` yet, and there was no manifest to build the script from. The CSS
+   still arrives, which is what makes this one easy to miss. Put `granum(granumConfig)`
+   directly into `vite.plugins` of the Astro config.
+2. **The `granum-without-theme-manifest` error.** The installed granum does not hand the
+   mode manifest out before the build. Update `@feugene/granum` and
+   `@feugene/granum-engine-wind` to `^3.2.0`. Under `strict: false` the build goes on
+   without the script — and the page flashes.
+
+Neither in the log? Then `injectThemeScript: false` is set, or the granum build has no
+modes at all.
+
+## "Components stay light in dark mode — `data-theme="dark"` does nothing"
+
+Core 2 is styled by the pair only: `[data-theme="slate-dark"]`. A bare mode name —
+`data-theme="dark"`, the way integration 1.x and the toggles written for it set it —
+matches no selector, so components stay in the default mode, and so does
+`color-scheme`. Your own CSS keyed on `[data-theme='dark']` goes quiet the same way.
+
+Take the pairs from the build instead of writing them: switch modes with granum's
+controller — `createThemeController(manifest, { storageKey: 'gr-theme' })` over
+`import manifest from 'virtual:granum/themes'` — or with the core `useTheme()`. See
+[Theme](./theme.md#writing-your-own-toggle). In your CSS, select on the pair, or take
+colours from `--gr-*` tokens and need no selector at all.
+
+## "The chosen mode does not survive a reload"
+
+- **Another key.** granum's controller stores under `granum-theme` unless told
+  otherwise, while the script reads `themeStorageKey`, `gr-theme` by default. Pass
+  `storageKey: 'gr-theme'`.
+- **The pair stored instead of the name.** `localStorage['gr-theme']` holds `dark`, not
+  `slate-dark`; anything that is not a mode of the build is skipped.
+- **`data-theme` hard-coded in the layout.** The script takes a pair already on `<html>`
+  for the server's and keeps it, so the stored choice never applies. Leave the attribute
+  out of the markup; on a server, set it from the cookie only — see
+  [recipe 6](./recipes.md#6-server-side-rendering).
+- **Safari private mode.** Storage writes throw there. The mode still switches, it simply
+  does not persist. granum's controller catches the throw; a toggle that writes storage
+  by hand needs its own `try/catch`.
+
+## "The mode resets after a client-side navigation"
+
 `ClientRouter` strips every attribute off `<html>` and copies them from the fetched
-document, which has no `data-theme`.
-
-The integration's own script handles this. If yours does not, see
-[Theme](./theme.md#client-side-navigation).
-
-## "The theme does not survive a reload in Safari"
-
-Private mode throws on `localStorage`. The theme must still switch — it simply will not
-persist. Wrap writes in `try/catch`; the integration's script already does.
+document, which carries no `data-theme` unless a server put the pair in. The integration's
+script re-applies the stored mode on `astro:after-swap`, so a mode lost on navigation was
+not stored where the script reads it — see the previous section. With `injectThemeScript: false` the re-run is your
+own early script's job: see [Theme](./theme.md#client-side-navigation).
 
 ## Build fails: `Received protocol 'virtual:'`
 
@@ -118,32 +156,25 @@ or `vite.environments.ssr`, keep `noExternal` intact.
 The design system's built chunks import no `.css` — a component's own stylesheet reaches
 the page through granum — so Node loads the packages as they are, in `prerender` and in
 `ssr` alike. This error means a companion package built before 1.0.1, when the build
-still stitched `import './styles.css'` into the chunk. Update it to 1.1.
+still stitched `import './styles.css'` into the chunk. Update it to 2.x, the line that goes
+with core 2.
 
 ## Build fails: `ComponentRootImportError`
 
 A component is imported from a package root: `import { GrButton } from
-'@feugene/granularity'`. granum 2 rejects that — its selection only sees a component by
+'@feugene/granularity'`. granum rejects that — its selection only sees a component by
 its subpath, and the root pulls in the whole package. Import from the subpath,
 `@feugene/granularity/components/GrButton`; in `.vue` the auto-import resolver writes it
 for you. Utilities, plugins and types may still come from the root.
 
 ## The granum build line counts classes "without a rule"
 
-granum 2 reports a class from your markup that neither the engine nor the build's CSS
-defines: a typo, or a class whose rule is gone. On granum 2.0 the list also held false
-findings in two cases, and the site rendered correctly in both:
-
-- **`output: 'server'`.** granum 2.0 built its report from the CSS of the first
-  environment Astro builds. On a server build that is `prerender`, which holds no CSS, so
-  every class styled by your `.astro` `<style>` blocks landed in the list.
-- **CSS you inline yourself as a string** (`import css from './page.css?raw'` into
-  `<style set:html>`) is not a CSS asset of the build, and granum 2.0 did not see it.
-
-granum 2.1 fixes both: the report reads the CSS of every build environment, and a `.css`
-file inside `appSources` declares its classes even when it reaches the page as a string.
-Update `@feugene/granum` and `@feugene/granum-engine-wind` to `^2.1.0`; from then on a
-class in the list has no rule anywhere, and `granum report --strict` can gate CI.
+granum reports a class from your markup that neither the engine nor the build's CSS
+defines: a typo, or a class whose rule is gone. The report reads the CSS of every build
+environment, and a `.css` file inside `appSources` declares its classes even when it
+reaches the page as a string (`?raw` into `<style set:html>`), so a class in the list has
+no rule anywhere. `granum why-css <config> '<class>'` explains one, and
+`granum report --strict` can gate CI.
 
 ## Build fails: `Rolldown failed to resolve import "@floating-ui/dom"`
 
@@ -165,10 +196,13 @@ yarn add @feugene/fint-i18n
 With your own i18n runtime, point `appEntrypoint` at your own setup instead — see
 [recipe 3](./recipes.md#3-your-own-i18n-runtime).
 
-## Build fails on the theme script budget
+## The build warns about the mode script budget
 
-512 bytes, and it is a gate rather than a limit to raise. The script blocks the first
-paint by definition, so it grows on a deliberate decision.
+512 bytes on a theme with two modes: a gate for the package itself, a warning for your
+build. The script blocks the first paint, and every mode of your build adds its name and
+pair to it — on `slate` with two modes it is 407 bytes, 497 with `themeCookie`. Past the
+budget nothing breaks: the warning names the size and the number of modes, and whether
+each mode is worth its bytes on the critical path is your call.
 
 ## `@feugene/astro-granularity/client` does not resolve
 

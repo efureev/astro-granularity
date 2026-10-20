@@ -1,72 +1,64 @@
-import type { DefaultTheme, ThemeName } from './options'
+import type { GranumThemeManifest } from '@feugene/granum/runtime'
+import { createThemeScriptCode } from '@feugene/granum/runtime'
+import { collectPlugins, GRANUM_PLUGIN_NAME } from './env-check'
 
 /**
- * Бюджет инлайн-скрипта. Он блокирует отрисовку по определению, поэтому растёт
- * только осознанно: превышение роняет сборку пакета.
+ * Бюджет инлайн-скрипта на теме из двух режимов. Он блокирует отрисовку по
+ * определению, поэтому растёт только осознанно: превышение роняет тесты пакета.
+ * У потребителя размер растёт с числом режимов сборки — каждый добавляет свою
+ * пару, — и там превышение даёт предупреждение, а не падение.
  */
 export const THEME_SCRIPT_BUDGET_BYTES = 512
 
-/**
- * Правило выбора темы, вынесенное из скрипта, чтобы его можно было проверить
- * без исполнения строки. Скрипт и эта функция обязаны совпадать во всех
- * сочетаниях входов — это и проверяет `theme-script.test.ts`.
- */
-export function resolveTheme(
-  stored: string | null,
-  systemPrefersDark: boolean,
-  defaultTheme: DefaultTheme,
-): ThemeName {
-  if (stored === 'light' || stored === 'dark')
-    return stored
-  if (defaultTheme === 'light' || defaultTheme === 'dark')
-    return defaultTheme
-  return systemPrefersDark ? 'dark' : 'light'
+export type ThemeScriptOptions = {
+  /** Ключ `localStorage`, где лежит имя режима. */
+  storageKey: string
+  /** Cookie с именем режима — для SSR с `createCookieStorage`; читается раньше `localStorage`. */
+  cookie?: string
 }
 
 /**
- * Инлайн-скрипт, ставящий тему **до первой отрисовки**.
+ * Инлайн-скрипт, ставящий пару режима **до первой отрисовки**.
  *
- * Почему не импорт `initThemeEarly` из ядра: любой модуль — это сетевой запрос
- * и разбор до кадра. Скрипт обязан исполниться синхронно из `<head>`, поэтому
- * правило выбора здесь продублировано, а совпадение с ядром держится гейтом.
- *
- * `color-scheme` ставится потому, что ядро его не задаёт: без него нативные
- * скроллбары, `<select>` и поля ввода останутся светлыми на тёмной странице.
+ * Код целиком от granum: правило выбора то же, что у контроллера, на котором
+ * стоит `useTheme` ядра, а пары вписаны из манифеста сборки. Своё у Astro одно —
+ * повтор на `astro:after-swap`: `ClientRouter` снимает с `<html>` все атрибуты и
+ * копирует их из полученного документа, а там пары нет — скрипт на нём не исполнялся.
  */
-export function createThemeScript(storageKey: string, defaultTheme: DefaultTheme): string {
-  const key = JSON.stringify(storageKey)
-  // `typeof`, а не `matchMedia&&…`: при отсутствующем `matchMedia` короткое
-  // замыкание вернуло бы `undefined`, и в атрибут уехала бы строка "undefined".
-  const fallback = defaultTheme === 'system'
-    ? '(typeof matchMedia==="function"&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")'
-    : JSON.stringify(defaultTheme)
-
-  // Внешний try/catch: без него исключение в `<head>` останавливает разбор
-  // документа, и страница не отрисуется вообще. Внутренний — только под
-  // `localStorage`: в приватном режиме Safari он бросает на чтении.
-  //
-  // Применение вынесено в функцию и подписано на `astro:after-swap`:
-  // `ClientRouter` снимает с `<html>` все атрибуты и копирует их из полученного
-  // документа, а там `data-theme` нет — скрипт на нём не исполнялся. Без
-  // подписки тема терялась бы на каждом клиентском переходе.
-  //
-  // Слушатель на `document`, а не на `window`: Astro шлёт событие как
-  // `document.dispatchEvent(new Event(name))`, а такое не всплывает.
-  return `(function(){function a(){try{var k=${key},s=null;`
-    + `try{s=localStorage.getItem(k)}catch(e){}`
-    + `var t=s==="light"||s==="dark"?s:${fallback},r=document.documentElement;`
-    + `r.dataset.theme=t;r.style.colorScheme=t}catch(e){}}`
-    // Подписка тоже под `try`: без него отсутствующий `document` бросил бы
-    // наружу, а исключение в `<head>` останавливает разбор документа.
-    + `a();try{document.addEventListener("astro:after-swap",a)}catch(e){}})()`
+export function createThemeScript(manifest: GranumThemeManifest, options: ThemeScriptOptions): string {
+  return createThemeScriptCode({
+    manifest,
+    storageKey: options.storageKey,
+    ...(options.cookie !== undefined ? { cookie: options.cookie } : {}),
+    reapplyOn: ['astro:after-swap'],
+  })
 }
 
-export function assertThemeScriptBudget(script: string): void {
-  const bytes = Buffer.byteLength(script, 'utf8')
-  if (bytes > THEME_SCRIPT_BUDGET_BYTES) {
-    throw new Error(
-      `[astro-granularity] скрипт темы — ${bytes} Б при бюджете ${THEME_SCRIPT_BUDGET_BYTES} Б. `
-      + 'Он блокирует первую отрисовку, поэтому бюджет поднимается решением, а не молча.',
-    )
-  }
+export function themeScriptBytes(script: string): number {
+  return Buffer.byteLength(script, 'utf8')
+}
+
+type GranumAppPlugin = {
+  api?: { themeManifest?: (root?: string) => Promise<GranumThemeManifest> }
+}
+
+export type ThemeManifestLookup =
+  | { kind: 'found', manifest: GranumThemeManifest }
+  /** Плагина в списке нет — или его добавит интеграция, идущая следом. */
+  | { kind: 'no-plugin' }
+  /** granum старше 3.1: манифест до сборки он не отдаёт. */
+  | { kind: 'no-api' }
+
+/**
+ * Манифест режимов — у плагина granum приложения, из того же конфига, что и CSS.
+ * Сам `virtual:granum/themes` здесь недоступен: скрипт вставляется на этапе
+ * конфигурации Astro, раньше, чем Vite начнёт сборку.
+ */
+export async function findThemeManifest(plugins: unknown, root: string): Promise<ThemeManifestLookup> {
+  const plugin = (await collectPlugins(plugins)).find(p => p.name === GRANUM_PLUGIN_NAME) as GranumAppPlugin | undefined
+  if (!plugin)
+    return { kind: 'no-plugin' }
+  if (typeof plugin.api?.themeManifest !== 'function')
+    return { kind: 'no-api' }
+  return { kind: 'found', manifest: await plugin.api.themeManifest(root) }
 }
