@@ -7,6 +7,24 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v2.1.0] 2026-10-20
+
+### Added
+
+- **`./app` hands the build's mode manifest to the core `useTheme()`.** Islands no longer assume `slate` with `light`
+  and `dark`: a theme or modes of the application's own reach `useTheme()` from `virtual:granum/themes`. In the
+  browser the state is set up once per page and shared by every island, with the `themeStorageKey` key and, when set,
+  the `themeCookie` cookie; on the server each island gets its own state without storage.
+- The `virtual:granularity/theme` module (`storageKey`, `cookie`) for an entry of your own, typed in
+  `@feugene/astro-granularity/client`; `createVirtualThemePlugin`, `buildThemeModuleSource` and `VIRTUAL_THEME_ID` among
+  the root exports.
+
+### Docs
+
+- `theme`: your own CSS follows roles, `dark:`, `light-dark()` and the pair's suffix rather than the theme's name; the
+  example's `styles/theme.css` follows it — the page canvas is `light-dark()`, the toggle icons go by
+  `[data-theme$='-dark']`.
+
 ## [v2.0.0] 2026-10-20
 
 Moves to the design system's 2.0 line: themes and modes. A mode is now a **pair** on `<html>` —
