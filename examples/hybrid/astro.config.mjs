@@ -21,10 +21,13 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   integrations: [
     vue({ appEntrypoint: '@feugene/astro-granularity/app' }),
-    granularity({ i18n: {
-      packages: ['@feugene/granularity-chrono'],
-      locales: ['en', 'ru', 'es'],
-    } }),
+    granularity({
+      i18n: {
+        packages: ['@feugene/granularity-chrono'],
+        locales: ['en', 'ru', 'es'],
+      },
+      themeCookie: 'gr-theme',
+    }),
   ],
   // Плагин регистрирует приложение, а не интеграция: granum — обычный плагин
   // Vite, и его версия остаётся делом потребителя. Интеграция знает про него

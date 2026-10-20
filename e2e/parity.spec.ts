@@ -114,3 +114,38 @@ test.describe('три режима — один вид', () => {
     }
   })
 })
+
+/**
+ * Режим из cookie на сервере (рецепт 6 доки): маршрут, отрисованный на запрос,
+ * отдаёт пару на `<html>` уже в ответе — до скрипта. Пререндеренный — нет: у
+ * него заголовков запроса нет, и пару ставит скрипт по той же cookie.
+ */
+test.describe('режим из cookie на сервере', () => {
+  async function rootTheme(stand: Stand, path: string, cookie?: string): Promise<string | undefined> {
+    const response = await fetch(`${STANDS[stand]}${path}`, cookie ? { headers: { cookie } } : {})
+    return /<html[^>]*\sdata-theme="([^"]*)"/.exec(await response.text())?.[1]
+  }
+
+  test('маршрут на запрос отдаёт пару из cookie', async () => {
+    expect(await rootTheme('ssr', '/', 'gr-theme=dark')).toBe('slate-dark')
+    expect(await rootTheme('ssr', '/ru/settings/', 'other=1; gr-theme=dark')).toBe('slate-dark')
+    expect(await rootTheme('hybrid', '/incidents/queue-degradation/', 'gr-theme=dark')).toBe('slate-dark')
+  })
+
+  test('без cookie, с чужим режимом и на пререндере — без пары', async () => {
+    expect(await rootTheme('ssr', '/')).toBeUndefined()
+    expect(await rootTheme('ssr', '/', 'gr-theme=ocean')).toBeUndefined()
+    expect(await rootTheme('hybrid', '/', 'gr-theme=dark')).toBeUndefined()
+    expect(await rootTheme('static', '/', 'gr-theme=dark')).toBeUndefined()
+  })
+
+  test('переключатель пишет cookie, которую читает сервер', async ({ page }) => {
+    await page.goto(`${STANDS.ssr}/`)
+    await page.locator('[data-gr-theme-toggle]').click()
+    const chosen = await page.evaluate(() => document.documentElement.dataset.theme)
+    const header = (await page.context().cookies()).map(c => `${c.name}=${c.value}`).join('; ')
+
+    expect(chosen).toMatch(/^slate-(?:light|dark)$/)
+    expect(await rootTheme('ssr', '/', header)).toBe(chosen)
+  })
+})

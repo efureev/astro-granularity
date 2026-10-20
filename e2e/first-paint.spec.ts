@@ -127,9 +127,10 @@ test.describe('переключатель', () => {
 
     const after = await page.evaluate(() => document.documentElement.dataset.theme)
     expect(after).not.toBe(before)
-    // На корне — пара, в хранилище — имя режима: смена темы сборки выбор не сбросит.
+    // На корне — пара, в cookie `themeCookie` стенда — имя режима: смена темы
+    // сборки выбор не сбросит.
     expect(after).toMatch(/^slate-(?:light|dark)$/)
-    expect(await page.evaluate(() => localStorage.getItem('gr-theme'))).toBe(after!.slice('slate-'.length))
+    expect(await page.evaluate(() => document.cookie)).toContain(`gr-theme=${after!.slice('slate-'.length)}`)
     // `color-scheme` ставит CSS режима, а не скрипт: без него нативные
     // скроллбары и поля ввода остались бы светлыми на тёмной странице.
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe(after!.slice('slate-'.length))
@@ -142,7 +143,8 @@ test.describe('переключатель', () => {
 
     // Выбор записывается напрямую, а не кликом по переключателю: проверяется
     // инлайн-скрипт **пакета**, и зависимость от разметки примера сделала бы
-    // этот гейт заложником чужой кнопки.
+    // этот гейт заложником чужой кнопки. `localStorage`, а не cookie: без cookie
+    // скрипт обязан дочитать хранилище.
     await page.goto('/')
     await page.evaluate(() => localStorage.setItem('gr-theme', 'dark'))
 

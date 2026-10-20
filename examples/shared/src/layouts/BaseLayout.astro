@@ -1,5 +1,8 @@
 ---
 import { ClientRouter } from 'astro:transitions'
+import { modeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
+import manifest from 'virtual:granum/themes'
+import { cookie } from 'virtual:granularity/theme'
 import cover from '../assets/og-cover.png'
 import pkg from '@feugene/granularity/package.json'
 import ThemeToggle from '../components/ThemeToggle.astro'
@@ -37,6 +40,15 @@ interface Props {
 const { locale, page, title, description, offRoute = false } = Astro.props
 const t = strings(locale)
 
+// Режим из cookie — пара на `<html>` уже в ответе сервера. Только на маршруте,
+// который рендерится на запрос: у пререндеренного заголовков запроса нет, и
+// пару ему ставит скрипт. Нет cookie — нет атрибута: системной схемы сервер не
+// видит, её тоже решит скрипт.
+const mode = cookie && !Astro.isPrerendered
+  ? modeFromCookie(manifest, Astro.request.headers.get('cookie'), cookie)
+  : undefined
+const rootAttributes = mode ? themeRootAttributes(manifest, mode.name) : {}
+
 const canonical = new URL(localePath(locale, page), Astro.site).href
 const alts = alternates(page).map(a => ({ ...a, href: new URL(a.path, Astro.site).href }))
 const xDefault = new URL(localePath(defaultLocale, 'index'), Astro.site).href
@@ -61,7 +73,7 @@ const localeLinks = locales.map(code => ({
 ---
 
 <!doctype html>
-<html lang={locale}>
+<html lang={locale} {...rootAttributes}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

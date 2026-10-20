@@ -90,14 +90,17 @@ const { class: className } = Astro.props
 </button>
 
 <script>
-  import { createThemeController } from '@feugene/granum/runtime'
+  import { createCookieStorage, createThemeController } from '@feugene/granum/runtime'
   import manifest from 'virtual:granum/themes'
+  import { cookie, storageKey } from 'virtual:granularity/theme'
 
   function toggle() {
     // Контроллер на каждое нажатие, а не один на модуль: `ClientRouter` подменяет
     // документ, не переисполняя модуль, а свежий контроллер узнаёт режим по паре.
-    // Собственный ключ granum по умолчанию — `granum-theme`, а скрипт читает `gr-theme`.
-    const themes = createThemeController(manifest, { storageKey: 'gr-theme' })
+    // Ключ и cookie — из интеграции, те же, что читает скрипт.
+    const themes = createThemeController(manifest, cookie
+      ? { storage: createCookieStorage({ name: cookie }) }
+      : { storageKey })
     const scheme = themes.modes().find(mode => mode.name === themes.mode)?.colorScheme
     const next = themes.modes().find(mode => mode.colorScheme !== scheme)
     if (next)
@@ -117,8 +120,14 @@ const { class: className } = Astro.props
 режим переключится, просто не переживёт перезагрузку. Режимов больше двух — `themes.cycle()` обходит их в порядке манифеста, а
 `themes.modes()` готов для меню.
 
-Типы `virtual:granum/themes` даёт granum — одна строка `/// <reference types="@feugene/granum/client" />` в
-`src/env.d.ts`.
+`virtual:granularity/theme` несёт `themeStorageKey` и `themeCookie` интеграции, поэтому переключатель не разойдётся со
+скриптом, который их читает. Типы `virtual:granum/themes` даёт granum, `virtual:granularity/theme` — этот пакет: две
+строки в `src/env.d.ts`:
+
+```ts
+/// <reference types="@feugene/granum/client" />
+/// <reference types="@feugene/astro-granularity/client" />
+```
 
 Рабочая версия, вместе с обработкой доступного имени, — в
 [`examples/shared/src/components/ThemeToggle.astro`](../examples/shared/src/components/ThemeToggle.astro).

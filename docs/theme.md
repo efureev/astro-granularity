@@ -104,14 +104,17 @@ const { class: className } = Astro.props
 </button>
 
 <script>
-  import { createThemeController } from '@feugene/granum/runtime'
+  import { createCookieStorage, createThemeController } from '@feugene/granum/runtime'
   import manifest from 'virtual:granum/themes'
+  import { cookie, storageKey } from 'virtual:granularity/theme'
 
   function toggle() {
     // A controller per click, not per module: `ClientRouter` swaps the document
     // without re-running this module, and a fresh controller reads the mode off the pair.
-    // granum's own default key is `granum-theme`, while the script reads `gr-theme`.
-    const themes = createThemeController(manifest, { storageKey: 'gr-theme' })
+    // Key and cookie come from the integration — the same ones the script reads.
+    const themes = createThemeController(manifest, cookie
+      ? { storage: createCookieStorage({ name: cookie }) }
+      : { storageKey })
     const scheme = themes.modes().find(mode => mode.name === themes.mode)?.colorScheme
     const next = themes.modes().find(mode => mode.colorScheme !== scheme)
     if (next)
@@ -132,8 +135,15 @@ is caught inside: the mode switches, it simply does not survive a reload. With m
 two modes, `themes.cycle()` walks them in manifest order, and `themes.modes()` is ready to
 feed a menu.
 
-The types of `virtual:granum/themes` come from granum — one
-`/// <reference types="@feugene/granum/client" />` in `src/env.d.ts`.
+`virtual:granularity/theme` carries the integration's `themeStorageKey` and `themeCookie`, so
+the toggle cannot drift from the script that reads them. The types of `virtual:granum/themes`
+come from granum, those of `virtual:granularity/theme` from this package — two lines in
+`src/env.d.ts`:
+
+```ts
+/// <reference types="@feugene/granum/client" />
+/// <reference types="@feugene/astro-granularity/client" />
+```
 
 A working version, including accessible-name handling, lives in
 [`examples/shared/src/components/ThemeToggle.astro`](../examples/shared/src/components/ThemeToggle.astro).

@@ -7,6 +7,13 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Docs
+
+- Recipe 6 and the toggle in `theme` take the storage key and the cookie name from `virtual:granularity/theme` — the
+  name is written once, in the integration's `themeCookie`. `src/env.d.ts` references `@feugene/astro-granularity/client`.
+- The example stands keep the mode in the `gr-theme` cookie: on a route rendered per request the server sends
+  `<html data-theme>` already in the HTML. The e2e suite checks it against the cookie on all three stands.
+
 ## [v2.1.0] 2026-10-20
 
 ### Added

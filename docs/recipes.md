@@ -358,25 +358,23 @@ a server sees the request. Keep the mode in a cookie and the server sends
 // src/layouts/Base.astro
 import { modeFromCookie, themeRootAttributes } from '@feugene/granum/runtime'
 import manifest from 'virtual:granum/themes'
+import { cookie } from 'virtual:granularity/theme'
 
 // No cookie, no attribute: the server cannot see the system scheme, the script decides.
 // A prerendered route has no request headers to read.
-const mode = Astro.isPrerendered
-  ? undefined
-  : modeFromCookie(manifest, Astro.request.headers.get('cookie'), 'gr-theme')
+const mode = cookie && !Astro.isPrerendered
+  ? modeFromCookie(manifest, Astro.request.headers.get('cookie'), cookie)
+  : undefined
 const rootAttributes = mode ? themeRootAttributes(manifest, mode.name) : {}
 ---
 <html lang={Astro.currentLocale} {...rootAttributes}>
 ```
 
-The toggle then writes the cookie instead of `localStorage` — the same controller as in
-[Theme](./theme.md#writing-your-own-toggle), with granum's cookie storage:
-
-```ts
-import { createCookieStorage, createThemeController } from '@feugene/granum/runtime'
-
-const themes = createThemeController(manifest, { storage: createCookieStorage({ name: 'gr-theme' }) })
-```
+`cookie` is the integration's `themeCookie`: the name is written once, in `astro.config.mjs`.
+The toggle from [Theme](./theme.md#writing-your-own-toggle) writes that cookie instead of
+`localStorage` by itself, and the `./app` entry hands it to the core `useTheme()`.
+The example stands do exactly this, and the e2e suite checks the server's HTML against the
+cookie.
 
 `themeCookie` tells the inline script to read the same cookie before `localStorage`. Where
 the server has set the pair, the script leaves it alone; the cookie matters where it has
