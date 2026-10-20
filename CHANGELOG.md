@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v2.2.0] 2026-10-21
+
 ### Changed
 
 - **granum 3.8 build themes.** Peer `@feugene/granum` — `>=3.8.0 <4.0.0`, `@feugene/granularity` —
