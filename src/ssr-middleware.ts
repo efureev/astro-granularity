@@ -1,15 +1,19 @@
+import type { ThemeHead } from './theme-head'
 import { buildPageSnapshot, injectSnapshot, serializeSnapshot } from './ssr'
 import { runPage } from './ssr-store'
+import { applyThemeHead } from './theme-head'
 
 /**
  * Контекст Astro описан структурно, а не импортом `APIContext`.
  *
- * Нужны ровно два поля, а структурная форма даёт покрыть фабрику юнит-тестом:
+ * Нужны ровно эти поля, а структурная форма даёт покрыть фабрику юнит-тестом:
  * поднимать ради этого настоящий рендер Astro не пришлось бы никому.
  */
 export type GranularityMiddlewareContext = {
   currentLocale?: string | undefined
   url: URL
+  isPrerendered?: boolean
+  request?: { headers: { get: (name: string) => string | null } }
 }
 
 export type GranularityMiddlewareNext = () => Promise<Response>
@@ -19,6 +23,8 @@ export type SSRMiddlewareInput = {
   defaultLocale: string
   /** Языки приложения — для разбора пути, когда `currentLocale` пуст. */
   locales: string[]
+  /** Скрипт режима по манифесту сборки; `null` — подменять нечего (`theme-head.ts`). */
+  themeHead?: ThemeHead | null
 }
 
 /**
@@ -45,19 +51,21 @@ function matchFirstSegment(pathname: string, locales: string[]): string | null {
  * `createVirtualI18nPlugin`: виртуальный модуль в vitest не резолвится, и
  * покрыть тестом можно только то, что от него не зависит.
  */
-export function createGranularitySSRMiddleware({ defaultLocale, locales }: SSRMiddlewareInput) {
+export function createGranularitySSRMiddleware({ defaultLocale, locales, themeHead = null }: SSRMiddlewareInput) {
   return async (
     context: GranularityMiddlewareContext,
     next: GranularityMiddlewareNext,
   ): Promise<Response> => {
     const locale = context.currentLocale ?? matchFirstSegment(context.url.pathname, locales) ?? defaultLocale
+    // На пререндере заголовков запроса нет, и Astro предупреждает о каждом обращении к ним.
+    const cookie = context.isPrerendered ? null : context.request?.headers.get('cookie') ?? null
 
     /*
      * Весь рендер — внутри контекста страницы. Пары «открыть/закрыть» больше
      * нет, и состоянию неоткуда утечь в соседний запрос: контекст уходит вместе
      * со стеком, в том числе когда рендер упал.
      */
-    return runPage(locale, async () => {
+    return runPage({ locale, cookie }, async () => {
       const response = await next()
 
       if (!(response.headers.get('content-type') ?? '').includes('text/html'))
@@ -76,7 +84,8 @@ export function createGranularitySSRMiddleware({ defaultLocale, locales }: SSRMi
        * Платой идёт стриминг: страницу приходится собрать целиком. Он и так
        * терялся на каждой странице со строками — вставить снимок в поток нечем.
        */
-      const html = await response.text()
+      const text = await response.text()
+      const html = themeHead ? applyThemeHead(text, themeHead) : text
       const headers = new Headers(response.headers)
       // Длина тела изменилась. На статической сборке заголовок не выставлен и
       // так, но за адаптером он отдал бы обрезанную страницу.
@@ -89,5 +98,22 @@ export function createGranularitySSRMiddleware({ defaultLocale, locales }: SSRMi
 
       return new Response(injectSnapshot(html, serializeSnapshot(snapshot)), rest)
     })
+  }
+}
+
+/**
+ * Middleware одного скрипта режима — для приложения без снимка строк
+ * (`i18n: false` или `ssrStrings: false`): подменять скрипт ему тоже нужно, а
+ * модуля строк у него нет.
+ */
+export function createThemeHeadMiddleware(themeHead: ThemeHead) {
+  return async (_context: GranularityMiddlewareContext, next: GranularityMiddlewareNext): Promise<Response> => {
+    const response = await next()
+    if (!(response.headers.get('content-type') ?? '').includes('text/html'))
+      return response
+    const headers = new Headers(response.headers)
+    headers.delete('content-length')
+    const html = applyThemeHead(await response.text(), themeHead)
+    return new Response(html, { status: response.status, statusText: response.statusText, headers })
   }
 }

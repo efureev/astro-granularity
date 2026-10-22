@@ -139,6 +139,34 @@ test.describe('режим из cookie на сервере', () => {
     expect(await rootTheme('static', '/', 'gr-theme=dark')).toBeUndefined()
   })
 
+  /*
+   * Серверный остров рисует тему из cookie запроса, а не основную: иначе подвал
+   * отдаёт «Сланец», клиент гидрирует «Глину», и пропсы по умолчанию темы
+   * расходятся с разметкой.
+   */
+  test('дополнительная тема из cookie доходит до серверного острова', async () => {
+    async function footerTheme(stand: Stand, path: string, cookie?: string): Promise<string | undefined> {
+      const response = await fetch(`${STANDS[stand]}${path}`, cookie ? { headers: { cookie } } : {})
+      return /data-testid="theme-name"[^>]*data-theme-id="([^"]*)"/.exec(await response.text())?.[1]
+    }
+
+    expect(await rootTheme('ssr', '/', 'gr-theme=clay-dark')).toBe('clay-dark')
+    expect(await footerTheme('ssr', '/', 'gr-theme=clay-dark')).toBe('clay')
+    expect(await footerTheme('hybrid', '/incidents/queue-degradation/', 'gr-theme=clay-light')).toBe('clay')
+    expect(await footerTheme('ssr', '/')).toBe('slate')
+    // У пререндера заголовков запроса нет: тему острова выберет клиент.
+    expect(await footerTheme('hybrid', '/', 'gr-theme=clay-dark')).toBe('slate')
+  })
+
+  test('после гидрации тема из cookie та же, что в ответе сервера', async ({ page, context }) => {
+    await context.addCookies([{ name: 'gr-theme', value: 'clay-dark', url: STANDS.ssr }])
+    await page.goto(`${STANDS.ssr}/`)
+    await page.waitForFunction(() => document.querySelector('astro-island[ssr]') === null)
+
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('clay-dark')
+    await expect(page.getByTestId('theme-name')).toHaveAttribute('data-theme-id', 'clay')
+  })
+
   test('переключатель пишет cookie, которую читает сервер', async ({ page }) => {
     await page.goto(`${STANDS.ssr}/`)
     await page.locator('[data-gr-theme-toggle]').click()

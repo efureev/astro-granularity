@@ -19,7 +19,7 @@ import { installPageStore } from './ssr'
  * `AsyncLocalStorage` снимает ограничение целиком: у каждого запроса свой
  * контекст, и `build.concurrency` перестаёт иметь значение тоже.
  */
-type PageState = { locale: string, used: Set<string> }
+type PageState = { locale: string, cookie: string | null, used: Set<string> }
 
 const storage = new AsyncLocalStorage<PageState>()
 
@@ -30,6 +30,7 @@ const store: PageStore = {
     const state = storage.getStore()
     return state ? [...state.used] : []
   },
+  cookie: () => storage.getStore()?.cookie ?? null,
 }
 
 installPageStore(store)
@@ -42,6 +43,6 @@ installPageStore(store)
  * физически неоткуда. Упавший рендер тоже ничего за собой не оставляет —
  * снимать нечего, контекст уходит со стеком.
  */
-export function runPage<T>(locale: string, render: () => Promise<T>): Promise<T> {
-  return storage.run({ locale, used: new Set() }, render)
+export function runPage<T>(page: { locale: string, cookie?: string | null }, render: () => Promise<T>): Promise<T> {
+  return storage.run({ locale: page.locale, cookie: page.cookie ?? null, used: new Set() }, render)
 }

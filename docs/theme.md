@@ -161,7 +161,9 @@ island and one in Astro markup stay in step. The `@feugene/astro-granularity/app
 the build's manifest: in the browser once per page, as one state shared by every island (a mode
 switched in one reaches the rest), with the `themeStorageKey` key and the `themeCookie` cookie; on
 the server as the island's own state without storage, so that one page's mode does not leak into
-another. An entry of your own does the same itself — how is in the core's
+another, and with the choice from the request cookie: the island renders the same theme and mode
+the client then hydrates, so the theme's default props and everything that reads `useTheme()`
+agree with the markup. An entry of your own does the same itself — how is in the core's
 [mode guide](https://github.com/efureev/granularity/blob/main/packages/granularity/docs/modes.md):
 without a manifest the core assumes `slate` with `light` and `dark`.
 
@@ -192,12 +194,40 @@ alone. Two details in that subscription matter.
 **Inside a `try`.** An exception in `<head>` halts document parsing, so the generated
 code never throws out of itself — including when `document` is somehow absent.
 
+## Additional themes
+
+The script is injected at Astro's config stage, before the build. The sheet URLs of
+additional themes do not exist yet, so the script knows only the main theme's pairs: it does
+not choose an additional theme, and it takes that theme's pair, set by the server, for a
+stranger and overwrites it. So when the build has an additional theme, the integration's
+middleware replaces the script text with one built from the build manifest — with the sheet
+URLs. That script picks an additional theme from the cookie or `localStorage` and inserts its
+sheet (`blocking="render"`) before the pair.
+
+The place in `<head>` stays the same — after Astro's stylesheets: the additional theme's sheet
+must come after the main one in the cascade, or the main one overrides it. For the same reason
+the sheet for a pair the server has set ([recipe 6](./recipes.md#6-server-side-rendering)) is
+placed by the middleware too, where the script is: a layout cannot do it, Astro appends its
+stylesheets after the `<head>` content.
+
+The middleware registers itself. With strings in the HTML their middleware does the
+replacement; without them, its own — `@feugene/astro-granularity/theme-middleware`.
+
+`useTheme()` in islands follows the pair on the root whoever set it: a toggle on its own
+granum controller or the script after a client-side navigation. This takes
+`@feugene/granularity` 3.1.1 or newer — before it a new island put a stale choice back on the
+root.
+
 ## The budget is a gate
 
 512 bytes on a theme with two modes, held by a unit test of the package and by the
 browser gate. The script blocks the first paint by definition, so it grows on the owner's
 decision, not as a side effect of an edit. Currently 407 bytes on `slate` with two modes,
 and 497 with `themeCookie`.
+
+With one additional theme of two modes the budget is its own — 1024 bytes
+(`THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES`): the script carries that theme's pairs and the loader
+of its sheet. The example stands carry Clay, and the browser gate measures this budget.
 
 In your build the size also depends on how many modes there are: each one brings its
 name and its pair. Past the budget your build gets a warning, not an error — whether a

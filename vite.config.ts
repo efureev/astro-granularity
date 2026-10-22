@@ -19,6 +19,7 @@ export default defineConfig({
         app: fileURLToPath(new URL('./src/app.ts', import.meta.url)),
         runtime: fileURLToPath(new URL('./src/runtime.ts', import.meta.url)),
         middleware: fileURLToPath(new URL('./src/middleware.ts', import.meta.url)),
+        'theme-middleware': fileURLToPath(new URL('./src/theme-middleware.ts', import.meta.url)),
         // Явный энтри, а не общий чанк по усмотрению сборщика. `ssr.ts` держит
         // состояние страницы модульной переменной, и две его копии — в `app.js`
         // и в `middleware.js` — разошлись бы молча: локаль и журнал ключей

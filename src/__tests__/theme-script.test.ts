@@ -2,7 +2,7 @@ import type { GranumThemeManifest } from '@feugene/granum/runtime'
 import { createThemeController } from '@feugene/granum/runtime'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_STORAGE_KEY } from '../options'
-import { createThemeScript, findThemeManifest, THEME_SCRIPT_BUDGET_BYTES, themeScriptBytes } from '../theme-script'
+import { createThemeScript, findThemeManifest, THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES, THEME_SCRIPT_BUDGET_BYTES, themeScriptBytes } from '../theme-script'
 
 /** Манифест `virtual:granum/themes` для `themes: [{ theme: 'slate', modes: ['light', 'dark'] }]`. */
 const SLATE: GranumThemeManifest = {
@@ -166,6 +166,23 @@ describe('скрипт режима', () => {
   it('укладывается в бюджет на теме из двух режимов, и с cookie тоже', () => {
     for (const options of [{}, { cookie: 'gr-theme' }])
       expect(themeScriptBytes(script(options))).toBeLessThanOrEqual(THEME_SCRIPT_BUDGET_BYTES)
+  })
+
+  it('с дополнительной темой из двух режимов — в своём бюджете', () => {
+    const clay = {
+      id: 'clay',
+      title: 'Clay',
+      modes: [
+        { name: 'light', colorScheme: 'light' as const, value: 'clay-light' },
+        { name: 'dark', colorScheme: 'dark' as const, value: 'clay-dark' },
+      ],
+      defaultMode: 'light',
+      href: '/_astro/granum-theme-clay.B85kdV9r.css',
+    }
+    const manifest = { ...SLATE, themes: [...SLATE.themes, clay] }
+    const bytes = themeScriptBytes(createThemeScript(manifest, { storageKey: DEFAULT_STORAGE_KEY, cookie: 'gr-theme' }))
+    expect(bytes).toBeGreaterThan(THEME_SCRIPT_BUDGET_BYTES)
+    expect(bytes).toBeLessThanOrEqual(THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES)
   })
 })
 

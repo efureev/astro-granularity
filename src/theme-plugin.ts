@@ -9,6 +9,8 @@ export const VIRTUAL_THEME_ID = 'virtual:granularity/theme'
 export type VirtualThemeInput = {
   storageKey: string
   cookie: string | undefined
+  /** Текст скрипта режима, вставленного на конфигурации; `null` — не вставлен. */
+  headScript?: string | null
 }
 
 /** Структурный тип плагина: `vite` в зависимости пакета не тянем. */
@@ -23,6 +25,7 @@ const RESOLVED_ID = `\0${VIRTUAL_THEME_ID}`
 export function buildThemeModuleSource(input: VirtualThemeInput): string {
   return `export const storageKey = ${JSON.stringify(input.storageKey)}\n`
     + `export const cookie = ${JSON.stringify(input.cookie ?? null)}\n`
+    + `export const headScript = ${JSON.stringify(input.headScript ?? null)}\n`
 }
 
 export function createVirtualThemePlugin(input: VirtualThemeInput): VirtualThemePlugin {

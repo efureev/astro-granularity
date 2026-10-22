@@ -93,6 +93,24 @@ describe('скрипт режима в `<head>`', () => {
     expect(injected[0]![1]).toContain('slate-dark')
   })
 
+  it('дополнительная тема без строк в HTML — middleware одного скрипта; со строками — общий', async () => {
+    const CLAY = { ...SLATE, themes: [...SLATE.themes, { id: 'clay', title: 'Clay', modes: SLATE_MODES, defaultMode: 'light' }] }
+    async function middlewares(manifest: unknown, options = {}) {
+      const added: string[] = []
+      await hooks(options)['astro:config:setup']?.({
+        ...SETUP_ARGS,
+        config: { ...SETUP_ARGS.config, root: '/site', vite: { plugins: [granumPlugin(manifest)] } },
+        addMiddleware: ({ entrypoint }: { entrypoint: string }) => added.push(entrypoint),
+      } as never)
+      return added
+    }
+
+    expect(await middlewares(CLAY, { i18n: false })).toEqual(['@feugene/astro-granularity/theme-middleware'])
+    expect(await middlewares(CLAY)).toEqual(['@feugene/astro-granularity/middleware'])
+    expect(await middlewares(SLATE, { i18n: false })).toEqual([])
+    expect(await middlewares(CLAY, { i18n: false, injectThemeScript: false })).toEqual([])
+  })
+
   it('`injectThemeScript: false` и основная тема без режимов — скрипта нет', async () => {
     expect((await setup([granumPlugin(SLATE)], { injectThemeScript: false })).injected).toEqual([])
     expect((await setup([granumPlugin(withModes([]))])).injected).toEqual([])

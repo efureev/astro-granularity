@@ -7,6 +7,28 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Major: core 3 — theme values live with the theme.
+
+### Changed
+
+- **Peers.** `@feugene/granularity` — `>=3.1.1 <4.0.0`, `@feugene/granum` — `>=3.10.0 <4.0.0`. Core 3.1.1 is
+  the floor: `useTheme()` in islands follows the pair on the root set by a toggle on its own granum controller
+  or by the head script after a client-side navigation; before it a new island put a stale choice back.
+
+### Added
+
+- **Server islands render the request's theme.** The middleware puts the request's `Cookie` header into the page
+  context, and `./app` hands the choice from `themeCookie` to the core theme plugin as `initial`: an island with an
+  additional theme in the cookie renders that theme, and its default props agree with hydration. `./runtime`
+  exports `readServerPageCookie()` for an entry of your own.
+- **Additional themes in the head script.** The script injected at config time knows no sheet URLs of additional
+  themes, so it could not choose them and overwrote their pair set by the server. When the build has an additional
+  theme, the middleware replaces it with the script built from the build manifest and places the sheet of a
+  server-set additional pair right before it — after Astro's stylesheets. Without strings in the HTML the
+  integration registers `@feugene/astro-granularity/theme-middleware` for it.
+- `THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES` — 1024: the budget of a build with one additional theme of two modes.
+  The example stands carry Clay as an additional theme, and the browser gate measures this budget.
+
 ## [v2.2.0] 2026-10-21
 
 ### Changed

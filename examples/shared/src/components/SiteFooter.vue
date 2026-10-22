@@ -7,13 +7,21 @@
  */
 import { GrButton } from '@feugene/granularity/components/GrButton'
 import { GrTooltip } from '@feugene/granularity/components/GrTooltip'
+import { useTheme } from '@feugene/granularity/composables/useTheme'
+import { computed } from 'vue'
 
 defineProps<{
   note: string
   version: string
   versionHint: string
   backToTop: string
+  themeLabel: string
 }>()
+
+// Тема из `useTheme()` — на сервере та, что выбрана в cookie запроса: подвал
+// рисуется на сервере, и расхождение с гидрацией видно здесь первым.
+const { theme, themes } = useTheme()
+const themeTitle = computed(() => themes.find(entry => entry.id === theme.value)?.title ?? theme.value)
 
 function toTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -31,6 +39,8 @@ function toTop() {
           class="cursor-help rounded-[var(--gr-radius-full)] border border-[var(--gr-brd)] px-2.5 py-0.5 font-mono text-xs"
         >granularity {{ version }}</span>
       </GrTooltip>
+
+      <span data-testid="theme-name" :data-theme-id="theme">{{ themeLabel }}: {{ themeTitle }}</span>
 
       <GrButton class="ml-auto" variant="ghost" size="sm" @click="toTop">
         {{ backToTop }}

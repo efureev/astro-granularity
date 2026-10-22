@@ -379,5 +379,13 @@ cookie.
 the server has set the pair, the script leaves it alone; the cookie matters where it has
 not — on `prerender = true` routes, whose HTML is built once for everyone.
 
+**Islands on the server render the same choice.** The integration's middleware puts the
+request's `Cookie` header into the page context, and the `./app` entry hands the choice to
+`useTheme()` as the initial one: an island with an additional theme in the cookie renders that
+theme rather than the main one, and hydration agrees with the markup. An entry of your own
+takes it the same way — `readServerPageCookie()` from `./runtime` and granum's
+`themeFromCookie`. The sheet of an additional theme whose pair the server has set is placed by
+the integration itself — see [Additional themes](./theme.md#additional-themes).
+
 **Everything else is unaffected**: auto-import, the environment check and every
 component behave identically.

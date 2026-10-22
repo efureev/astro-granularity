@@ -13,6 +13,8 @@ declare module 'virtual:granularity/theme' {
   export const storageKey: string
   /** Cookie с именем режима из опции `themeCookie`; `null`, если режим живёт в `localStorage`. */
   export const cookie: string | null
+  /** Текст скрипта режима, вставленного интеграцией в `<head>`; `null` — не вставлен. */
+  export const headScript: string | null
 }
 
 declare module 'virtual:granularity/i18n' {

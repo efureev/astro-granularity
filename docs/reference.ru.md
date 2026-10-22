@@ -84,6 +84,7 @@ import '../styles/theme.css'   // своё, вне слоёв — и потом�
 | `./app`          | `setup` для `vue({ appEntrypoint: … })` и `getGranularityI18n()`  |
 | `./runtime`      | Браузерные кирпичи и шов снимка строк                             |
 | `./middleware`   | `onRequest`. Регистрирует интеграция; импортировать не нужно      |
+| `./theme-middleware` | `onRequest` скрипта режима для сборки с дополнительными темами без строк в HTML. Регистрирует интеграция |
 | `./client`       | Только типы: `declare module 'virtual:granularity/i18n'`          |
 | `./package.json` | Сам манифест                                                      |
 
@@ -101,10 +102,11 @@ import '../styles/theme.css'   // своё, вне слоёв — и потом�
 Сборочные хелперы, вынесенные наружу потому, что их можно проверить в изоляции:
 
 - `createThemeScript(manifest, { storageKey, cookie? })` — код скрипта режима по манифесту granum
-  в том виде, в каком он уходит в `injectScript('head-inline', …)`; `THEME_SCRIPT_BUDGET_BYTES` — его бюджет, 512
+  в том виде, в каком он уходит в `injectScript('head-inline', …)`; `THEME_SCRIPT_BUDGET_BYTES` — его бюджет, 512,
+  `THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES` — бюджет сборки с одной дополнительной темой, 1024
 - `buildI18nModuleSource`, `assertPackageSpecifier`, `VIRTUAL_I18N_ID`
 - `createVirtualI18nPlugin` и его типы
-- `createVirtualThemePlugin`, `buildThemeModuleSource`, `VIRTUAL_THEME_ID` — модуль `virtual:granularity/theme` (`storageKey`, `cookie`) для своей точки входа
+- `createVirtualThemePlugin`, `buildThemeModuleSource`, `VIRTUAL_THEME_ID` — модуль `virtual:granularity/theme` (`storageKey`, `cookie`, `headScript`) для своей точки входа
 - `GRANUM_PLUGIN_NAME`, `VUE_INTEGRATION_NAME`
 - Типы: `GranularityAstroOptions`, `ResolvedOptions`, `SSRStringsMode`, `ThemeScriptOptions`
 
@@ -125,6 +127,7 @@ import '../styles/theme.css'   // своё, вне слоёв — и потом�
 | `deriveI18nBlocks(loaders)`                      | Имена блоков, прочитанные из коллекций лоадеров                                                           |
 | `readPageLocale(defaultLocale)`                  | Язык страницы из `<html lang>`                                                                            |
 | `readServerPageLocale()`                         | Язык маршрута, объявленный middleware на сборке                                                           |
+| `readServerPageCookie()`                         | Заголовок `Cookie` запроса страницы — выбор темы острова на сервере; `null` на пререндере                 |
 | `readSnapshotFromDocument()`                     | Снимок строк из разметки                                                                                  |
 | `registerSnapshotBuilder(fn)`                    | Зарегистрировать того, кто снимок строит                                                                  |
 | `SNAPSHOT_ATTR`                                  | `data-granularity-i18n`                                                                                   |
@@ -179,14 +182,14 @@ export const ssrStrings: 'used' | 'full' | false  // из `i18n.ssrStrings`
 |------------------------|-------------------|--------------|
 | `astro`                | `>=7.0.0 <8.0.0`  | нет          |
 | `@astrojs/vue`         | `>=7.0.0 <8.0.0`  | да           |
-| `@feugene/granularity` | `>=2.0.0 <3.0.0`  | нет          |
-| `@feugene/granum`      | `>=3.2.0 <4.0.0`  | нет          |
+| `@feugene/granularity` | `>=3.1.1 <4.0.0`  | нет          |
+| `@feugene/granum`      | `>=3.10.0 <4.0.0` | нет          |
 | `@feugene/fint-i18n`   | `>=0.9.0 <1.0.0`  | да           |
 
 `@feugene/granum` обязателен: интеграция читает `api.themeManifest` плагина, а скрипт режима
-ей пишет `createThemeScriptCode` из `@feugene/granum/runtime`. Нижняя граница — 3.2: `api`
-манифеста появился в 3.1, а `reapplyOn` генератора, повторяющий режим после подмены
-`ClientRouter`, — только в 3.2.
+ей пишет `createThemeScriptCode` из `@feugene/granum/runtime`. Нижняя граница — 3.10: на ней
+стоит ядро 3. Ядро — не ниже 3.1.1: `useTheme()` островов идёт за парой на корне, которую
+поставил переключатель или скрипт после клиентского перехода.
 
 **Нижняя граница равна версии, на которой гоняется гейт.** Диапазон, заявляющий поддержку того, что никто не проверял,
 хуже узкого: установка проходит, а поломка всплывает позже, у вас в приложении. Расширение диапазона означает, что

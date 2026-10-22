@@ -46,6 +46,8 @@ export type PageStore = {
   record: (key: string) => void
   /** Ключи, отрисованные на текущей странице. */
   used: () => readonly string[]
+  /** Заголовок `Cookie` запроса страницы; `null` на пререндере и вне рендера. */
+  cookie: () => string | null
 }
 
 let store: PageStore | null = null
@@ -70,6 +72,18 @@ export function installPageStore(implementation: PageStore): void {
  */
 export function readServerPageLocale(): string | null {
   return store?.locale() ?? null
+}
+
+/**
+ * Заголовок `Cookie` запроса, на который рисуется страница.
+ *
+ * Из него сервер берёт выбор темы для островов: без него остров рисует основную
+ * тему, а клиент гидрирует выбранную — пропсы по умолчанию темы и всё, что
+ * читает `useTheme()`, расходятся с разметкой. `null` на пререндере (заголовков
+ * запроса там нет) и всегда в браузере.
+ */
+export function readServerPageCookie(): string | null {
+  return store?.cookie() ?? null
 }
 
 /** Отметить ключ отрисованным. Вне рендера страницы — молча ничего. */

@@ -19,7 +19,7 @@ export { deriveI18nBlocks, type GranularityI18nAdapterLike, type GranularityLoca
 // тоже: `readServerPageLocale()`, взятый отсюда, всегда возвращал бы `null`.
 // Приложению шов доступен там, где он работает, — в `./runtime`.
 export { buildThemeModuleSource, createVirtualThemePlugin, VIRTUAL_THEME_ID, type VirtualThemeInput, type VirtualThemePlugin } from './theme-plugin'
-export { createThemeScript, THEME_SCRIPT_BUDGET_BYTES, type ThemeScriptOptions } from './theme-script'
+export { createThemeScript, THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES, THEME_SCRIPT_BUDGET_BYTES, type ThemeScriptOptions } from './theme-script'
 
 /**
  * Пакеты, чьи серверные входы обязаны быть встроены в бандл — в обоих серверных
@@ -48,8 +48,10 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
     name: '@feugene/astro-granularity',
     hooks: {
       'astro:config:setup': async ({ addMiddleware, config, updateConfig, injectScript, logger }) => {
-        if (resolved.injectThemeScript)
-          themeScriptMissing = await injectThemeScript(config.vite?.plugins, projectRoot(config.root), resolved, injectScript, logger)
+        const head = resolved.injectThemeScript
+          ? await injectThemeScript(config.vite?.plugins, projectRoot(config.root), resolved, injectScript, logger)
+          : NO_HEAD_SCRIPT
+        themeScriptMissing = head.missing
 
         // Модуль порождается здесь, а не лежит файлом: состав лоадеров зависит
         // от опций, а `\0`-префикс закрывает его от разрешения по файловой системе.
@@ -59,7 +61,7 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
               createVirtualI18nPlugin(resolved.i18n === false
                 ? false
                 : { ...resolved.i18n, defaultLocale: config.i18n?.defaultLocale ?? 'en' }),
-              createVirtualThemePlugin({ storageKey: resolved.themeStorageKey, cookie: resolved.themeCookie }),
+              createVirtualThemePlugin({ storageKey: resolved.themeStorageKey, cookie: resolved.themeCookie, headScript: head.script }),
             ],
             // Оба серверных окружения Vite, а не наследуемый `ssr.noExternal`:
             // Astro 6 перевёл сборку на Environments API. `ssr` — это dev-сервер и
@@ -75,6 +77,10 @@ export default function granularity(options: GranularityAstroOptions = {}): Astr
 
         if (resolved.i18n !== false && resolved.i18n.ssrStrings !== false)
           registerSSRStrings(addMiddleware)
+        // Скрипт с дополнительными темами подменяет middleware: у middleware
+        // строк это попутная работа, без него — своя точка входа (`theme-head.ts`).
+        else if (head.script !== null && head.additionalThemes)
+          addMiddleware({ order: 'pre', entrypoint: '@feugene/astro-granularity/theme-middleware' })
 
         if (resolved.resolver) {
           const plugin = await loadResolverPlugin(projectRoot(config.root), logger)
@@ -125,24 +131,32 @@ const THEME_SCRIPT_SKIPPED: EnvProblem = {
     + 'Поставьте `granum(granumConfig)` прямо в `vite.plugins` конфига Astro.',
 }
 
-/**
- * Скрипт режима в `<head>`. Возвращает причину, по которой его нет, — оценит
- * её `astro:config:done`, когда список плагинов полон.
- */
+type HeadScript = {
+  /** Почему скрипта нет — оценит `astro:config:done`, когда список плагинов полон. */
+  missing: 'no-plugin' | 'no-api' | null
+  /** Вставленный текст: middleware узнаёт его в HTML, чтобы подменить. */
+  script: string | null
+  /** У сборки есть дополнительные темы с режимами — скрипт до сборки их не выбирает. */
+  additionalThemes: boolean
+}
+
+const NO_HEAD_SCRIPT: HeadScript = { missing: null, script: null, additionalThemes: false }
+
+/** Скрипт режима в `<head>`. */
 async function injectThemeScript(
   plugins: unknown,
   root: string,
   resolved: ResolvedOptions,
   injectScript: (stage: 'head-inline', content: string) => void,
   logger: Logger,
-): Promise<'no-plugin' | 'no-api' | null> {
+): Promise<HeadScript> {
   const found = await findThemeManifest(plugins, root)
   if (found.kind !== 'found')
-    return found.kind
+    return { ...NO_HEAD_SCRIPT, missing: found.kind }
   // Основная тема без режимов: пару ставить нечем, и скрипт был бы пустой работой.
   const main = found.manifest.themes.find(theme => theme.id === found.manifest.defaultTheme)
   if (!main || main.modes.length === 0)
-    return null
+    return NO_HEAD_SCRIPT
 
   const script = createThemeScript(found.manifest, {
     storageKey: resolved.themeStorageKey,
@@ -158,7 +172,8 @@ async function injectThemeScript(
   // `head-inline` — единственная точка, исполняющаяся синхронно до
   // отрисовки. Любая другая даёт кадр в чужом режиме.
   injectScript('head-inline', script)
-  return null
+  const additionalThemes = found.manifest.themes.some(theme => theme.id !== found.manifest.defaultTheme && theme.modes.length > 0)
+  return { missing: null, script, additionalThemes }
 }
 
 function projectRoot(root: URL | string): string {

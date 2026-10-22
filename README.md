@@ -9,7 +9,7 @@ One line in `astro.config.mjs` and the library is wired: the mode is applied **b
 strings ship inside the HTML, auto-import is registered, and a misconfigured environment fails the build with a message
 that names the fix instead of quietly serving an unstyled page.
 
-Requires **Astro 7**, `@feugene/granularity` **2** and `@feugene/granum` **3**, no older than 3.2.
+Requires **Astro 7**, `@feugene/granularity` **3**, no older than 3.1.1, and `@feugene/granum` **3**, no older than 3.10.
 
 ## What it actually does
 
@@ -30,8 +30,8 @@ debug.
 The CSS pipeline stays yours: `granum` is an ordinary Vite plugin, you register it and you import its stylesheet. The
 integration knows two things about the plugin: its name, and its `api.themeManifest` — the build's modes and their
 pairs. The mode script itself is written by granum's own generator from `@feugene/granum/runtime`. The version is set
-by the design system: core 2 is built with `granum` 3, and the integration declares 3.2 and newer — the first version
-whose generator re-applies the mode after Astro's client-side navigation.
+by the design system: core 3 stands on `granum` 3.10 — theme values live with the theme — and the integration declares
+3.10 and newer.
 
 ## Install
 

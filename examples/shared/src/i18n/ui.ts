@@ -91,6 +91,7 @@ export type UiStrings = {
   footerNote: string
   versionHint: string
   backToTop: string
+  themeLabel: string
 
   errBackHome: string
   errSeeIncidents: string
@@ -209,6 +210,7 @@ export const ui: Record<Locale, UiStrings> = {
     footerNote: 'A demo app for @feugene/astro-granularity.',
     versionHint: 'Version of the design system this demo is built against.',
     backToTop: 'Back to top',
+    themeLabel: 'Theme',
 
     errBackHome: 'Go to overview',
     errSeeIncidents: 'Check incidents',
@@ -325,6 +327,7 @@ export const ui: Record<Locale, UiStrings> = {
     footerNote: 'Демонстрационное приложение для @feugene/astro-granularity.',
     versionHint: 'Версия дизайн-системы, под которую собрано это демо.',
     backToTop: 'Наверх',
+    themeLabel: 'Тема',
 
     errBackHome: 'На страницу обзора',
     errSeeIncidents: 'Посмотреть инциденты',
@@ -441,6 +444,7 @@ export const ui: Record<Locale, UiStrings> = {
     footerNote: 'Aplicación de demostración para @feugene/astro-granularity.',
     versionHint: 'Versión del sistema de diseño con la que está construida esta demo.',
     backToTop: 'Volver arriba',
+    themeLabel: 'Tema',
 
     errBackHome: 'Ir al resumen',
     errSeeIncidents: 'Ver incidencias',

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import sharp from 'sharp'
-import { THEME_SCRIPT_BUDGET_BYTES } from '../src/theme-script'
+import { THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES } from '../src/theme-script'
 
 /** Порог «тёмного»: сумма RGB. Канва примера — #0f172a (80) и #f8fafc (750). */
 const DARK_MAX = 200
@@ -113,7 +113,9 @@ test.describe('форма скрипта', () => {
     expect(shape!.inHead).toBe(true)
     expect(shape!.inline).toBe(true)
     expect(shape!.sync).toBe(true)
-    expect(shape!.bytes).toBeLessThanOrEqual(THEME_SCRIPT_BUDGET_BYTES)
+    // Стенды несут дополнительную тему («Глину»): бюджет сборки с ней — свой,
+    // бюджет темы из двух режимов держит юнит-тест скрипта.
+    expect(shape!.bytes).toBeLessThanOrEqual(THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES)
   })
 })
 

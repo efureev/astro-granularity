@@ -9,9 +9,9 @@ import manifest from 'virtual:granum/themes'
 import { createFintI18n, getSSRState, hydrate } from '@feugene/fint-i18n/core'
 import { installI18n } from '@feugene/fint-i18n/vue'
 import { granularityThemePlugin, initThemeEarly } from '@feugene/granularity/composables/useTheme'
-import { createCookieStorage } from '@feugene/granum/runtime'
+import { createCookieStorage, themeFromCookie } from '@feugene/granum/runtime'
 import { readPageLocale } from './runtime'
-import { readServerPageLocale, readSnapshotFromDocument, recordUsedKey, registerSnapshotBuilder } from './ssr'
+import { readServerPageCookie, readServerPageLocale, readSnapshotFromDocument, recordUsedKey, registerSnapshotBuilder } from './ssr'
 
 type FintI18n = ReturnType<typeof createFintI18n>
 
@@ -224,11 +224,20 @@ let clientThemeReady = false
  * `<head>`, и контроллер её узнаёт, а не выбирает заново.
  *
  * На сервере — состояние острова и без хранилища: модульное состояние на
- * сборке общее для всех страниц, и режим одной утёк бы в другую.
+ * сборке общее для всех страниц, и режим одной утёк бы в другую. Выбор берётся
+ * из cookie запроса — той же, что ставит пару на `<html>`: иначе остров рисует
+ * основную тему, а клиент гидрирует выбранную, и пропсы по умолчанию темы
+ * расходятся с разметкой.
  */
 function installTheme(app: App): void {
   if (isServer) {
-    app.use(granularityThemePlugin, { manifest, storageKey, persist: false })
+    const selection = cookie !== null ? themeFromCookie(manifest, readServerPageCookie(), cookie) : undefined
+    app.use(granularityThemePlugin, {
+      manifest,
+      storageKey,
+      persist: false,
+      ...(selection ? { initial: { theme: selection.theme.id, mode: selection.mode.name } } : {}),
+    })
     return
   }
   if (clientThemeReady)

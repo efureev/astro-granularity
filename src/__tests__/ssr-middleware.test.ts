@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { readServerPageLocale, registerSnapshotBuilder, SNAPSHOT_ATTR } from '../ssr'
+import { readServerPageCookie, readServerPageLocale, registerSnapshotBuilder, SNAPSHOT_ATTR } from '../ssr'
 import { createGranularitySSRMiddleware } from '../ssr-middleware'
 
 const middleware = createGranularitySSRMiddleware({ defaultLocale: 'en', locales: ['en', 'ru'] })
@@ -21,6 +21,32 @@ async function declaredLocale(pathname: string, currentLocale?: string): Promise
   })
   return seen
 }
+
+describe('cookie запроса для темы островов', () => {
+  beforeEach(() => {
+    registerSnapshotBuilder(() => null)
+  })
+
+  async function seenCookie(isPrerendered: boolean): Promise<{ cookie: string | null, reads: number }> {
+    let reads = 0
+    let cookie: string | null = null
+    const request = { headers: { get: (name: string) => (reads++, name === 'cookie' ? 'gr-theme=clay-dark' : null) } }
+    await middleware({ ...context('/ru/'), isPrerendered, request }, async () => {
+      cookie = readServerPageCookie()
+      return html('тело')
+    })
+    return { cookie, reads }
+  }
+
+  it('маршрут на запрос отдаёт островам заголовок `Cookie`', async () => {
+    expect(await seenCookie(false)).toEqual({ cookie: 'gr-theme=clay-dark', reads: 1 })
+  })
+
+  // Заголовков у пререндера нет, и Astro предупреждает о каждом обращении к ним.
+  it('на пререндере заголовки не читаются вовсе', async () => {
+    expect(await seenCookie(true)).toEqual({ cookie: null, reads: 0 })
+  })
+})
 
 describe('локаль страницы', () => {
   beforeEach(() => {

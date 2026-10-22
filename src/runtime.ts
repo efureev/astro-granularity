@@ -102,11 +102,14 @@ export function provideGranularityI18n(
  *
  * Локаль страницы на сборке объявляет middleware интеграции, а снимок строк
  * лежит в разметке — обе величины доступны и тому, кто взял другой i18n-рантайм.
+ * Заголовок `Cookie` запроса — для выбора темы острова на сервере
+ * (`themeFromCookie` granum).
  * Реэкспорт, а не копия: `ssr.ts` обязан быть одним модулем на сборку, иначе
  * состояние страницы разъедется между копиями и снимок выйдет пустым.
  */
 export {
   type GranularityI18nSnapshot,
+  readServerPageCookie,
   readServerPageLocale,
   readSnapshotFromDocument,
   registerSnapshotBuilder,

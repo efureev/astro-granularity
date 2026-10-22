@@ -85,6 +85,7 @@ Block names never need listing: they live inside the loader collections themselv
 | `./app` | `setup` for `vue({ appEntrypoint: … })` and `getGranularityI18n()` |
 | `./runtime` | Browser-side building blocks and the snapshot seam |
 | `./middleware` | `onRequest`. The integration registers it; you never import it |
+| `./theme-middleware` | `onRequest` of the mode script for a build with additional themes and no strings in the HTML. The integration registers it |
 | `./client` | Types only: `declare module 'virtual:granularity/i18n'` |
 | `./package.json` | The manifest |
 
@@ -104,10 +105,11 @@ Build-time helpers, exported because they are testable in isolation:
 
 - `createThemeScript(manifest, { storageKey, cookie? })` — the code of the mode script
   for a granum manifest, as it goes into `injectScript('head-inline', …)`;
-  `THEME_SCRIPT_BUDGET_BYTES` — its budget, 512
+  `THEME_SCRIPT_BUDGET_BYTES` — its budget, 512; `THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES` — the
+  budget of a build with one additional theme, 1024
 - `buildI18nModuleSource`, `assertPackageSpecifier`, `VIRTUAL_I18N_ID`
 - `createVirtualI18nPlugin` and its types
-- `createVirtualThemePlugin`, `buildThemeModuleSource`, `VIRTUAL_THEME_ID` — the `virtual:granularity/theme` module (`storageKey`, `cookie`) for an entry of your own
+- `createVirtualThemePlugin`, `buildThemeModuleSource`, `VIRTUAL_THEME_ID` — the `virtual:granularity/theme` module (`storageKey`, `cookie`, `headScript`) for an entry of your own
 - `GRANUM_PLUGIN_NAME`, `VUE_INTEGRATION_NAME`
 - Types: `GranularityAstroOptions`, `ResolvedOptions`, `SSRStringsMode`, `ThemeScriptOptions`
 
@@ -129,6 +131,7 @@ bring a different i18n runtime, so shapes are described structurally.
 | `deriveI18nBlocks(loaders)` | Block names read out of the loader collections |
 | `readPageLocale(defaultLocale)` | Page language from `<html lang>` |
 | `readServerPageLocale()` | Route language declared by the middleware during the build |
+| `readServerPageCookie()` | The page request's `Cookie` header — the island theme choice on the server; `null` when prerendering |
 | `readSnapshotFromDocument()` | The strings snapshot out of the markup |
 | `registerSnapshotBuilder(fn)` | Register who builds the snapshot |
 | `SNAPSHOT_ATTR` | `data-granularity-i18n` |
@@ -183,14 +186,14 @@ how a plugin added later is told apart from a missing one.
 | --- | --- | --- |
 | `astro` | `>=7.0.0 <8.0.0` | no |
 | `@astrojs/vue` | `>=7.0.0 <8.0.0` | yes |
-| `@feugene/granularity` | `>=2.0.0 <3.0.0` | no |
-| `@feugene/granum` | `>=3.2.0 <4.0.0` | no |
+| `@feugene/granularity` | `>=3.1.1 <4.0.0` | no |
+| `@feugene/granum` | `>=3.10.0 <4.0.0` | no |
 | `@feugene/fint-i18n` | `>=0.9.0 <1.0.0` | yes |
 
 `@feugene/granum` is required: the integration reads the plugin's `api.themeManifest` and
 has the mode script written by `createThemeScriptCode` from `@feugene/granum/runtime`. The
-floor is 3.2: the manifest `api` arrived in 3.1, but the generator's `reapplyOn`, which
-re-applies the mode after a `ClientRouter` swap, only in 3.2.
+floor is 3.10: core 3 stands on it. The core is no older than 3.1.1: `useTheme()` in islands
+follows the pair on the root set by a toggle or by the script after a client-side navigation.
 
 **A floor sits at the version the gate runs on.** A range claiming support for something
 nobody tested is worse than a narrow one: the install succeeds and the breakage surfaces

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   buildPageSnapshot,
   injectSnapshot,
+  readServerPageCookie,
   readServerPageLocale,
   recordUsedKey,
   registerSnapshotBuilder,
@@ -74,7 +75,7 @@ describe('контекст страницы', () => {
   })
 
   it('журнал живёт ровно внутри рендера и наружу не выходит', async () => {
-    await runPage('ru', async () => {
+    await runPage({ locale: 'ru' }, async () => {
       recordUsedKey('gr.pagination.next')
       expect(readServerPageLocale()).toBe('ru')
       expect(usedKeys()).toEqual(['gr.pagination.next'])
@@ -84,8 +85,24 @@ describe('контекст страницы', () => {
     expect(usedKeys()).toEqual([])
   })
 
+  it('cookie запроса живёт внутри рендера своей страницы', async () => {
+    expect(readServerPageCookie()).toBeNull()
+
+    await Promise.all([
+      runPage({ locale: 'ru', cookie: 'gr-theme=clay-dark' }, async () => {
+        await new Promise(resolve => setTimeout(resolve, 5))
+        expect(readServerPageCookie()).toBe('gr-theme=clay-dark')
+      }),
+      runPage({ locale: 'en' }, async () => {
+        expect(readServerPageCookie()).toBeNull()
+      }),
+    ])
+
+    expect(readServerPageCookie()).toBeNull()
+  })
+
   it('ключи не дублируются', async () => {
-    await runPage('ru', async () => {
+    await runPage({ locale: 'ru' }, async () => {
       recordUsedKey('gr.pagination.next')
       recordUsedKey('gr.pagination.next')
 
@@ -102,7 +119,7 @@ describe('контекст страницы', () => {
   it('параллельные рендеры не видят состояния друг друга', async () => {
     const seen: Record<string, { locale: string | null, used: readonly string[] }> = {}
 
-    const render = (locale: string, key: string, pause: number) => runPage(locale, async () => {
+    const render = (locale: string, key: string, pause: number) => runPage({ locale }, async () => {
       recordUsedKey(key)
       // Уступаем управление посреди рендера: именно здесь модульная переменная
       // и затиралась соседом.
@@ -138,7 +155,7 @@ describe('buildPageSnapshot', () => {
       return snapshot({ ru: { gr: {} } })
     })
 
-    await runPage('ru', async () => {
+    await runPage({ locale: 'ru' }, async () => {
       recordUsedKey('gr.pagination.prev')
       buildPageSnapshot()
     })

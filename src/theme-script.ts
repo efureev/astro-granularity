@@ -10,6 +10,13 @@ import { collectPlugins, GRANUM_PLUGIN_NAME } from './env-check'
  */
 export const THEME_SCRIPT_BUDGET_BYTES = 512
 
+/**
+ * Бюджет скрипта сборки с одной дополнительной темой из двух режимов. Только
+ * тогда скрипт везёт её пары и загрузчик её листа (`<link blocking="render">`);
+ * растёт так же — решением владельца.
+ */
+export const THEME_SCRIPT_ADDITIONAL_BUDGET_BYTES = 1024
+
 export type ThemeScriptOptions = {
   /** Ключ `localStorage`, где лежит имя режима. */
   storageKey: string
