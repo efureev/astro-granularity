@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [v3.0.0] 2026-10-22
+
 Major: core 3 — theme values live with the theme.
 
 ### Changed
