@@ -33,6 +33,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          check-latest: true
 
       - name: Install dependencies
         run: yarn install
@@ -52,6 +53,9 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
+          # Lock-файла нет, и свежие зависимости поднимают `engines` быстрее, чем
+          # обновляется Node в кеше раннера: берём последний патч мажора.
+          check-latest: true
 
       - name: Install dependencies
         run: yarn install
@@ -70,6 +74,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          check-latest: true
 
       - name: Install dependencies
         run: yarn install
@@ -118,6 +123,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          check-latest: true
 
       - name: Install dependencies
         run: yarn install
@@ -159,6 +165,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          check-latest: true
           registry-url: 'https://registry.npmjs.org'
 
       - name: Verify tag matches package version
@@ -199,6 +206,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@efureev'
 
