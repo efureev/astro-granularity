@@ -2,6 +2,8 @@
 
 **English** · [Русский](./README.ru.md)
 
+[![Astro Granularity on StartupScores](https://startupscores.com/badge/astro-granularity.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/astro-granularity)
+
 An [Astro](https://astro.build) integration for the
 [`@feugene/granularity`](https://github.com/efureev/granularity) design system.
 
